@@ -28,3 +28,10 @@ func (instance *Instance) Init() error {
 	log.Printf("%d endpoints registered", len(endpoints))
 	return nil
 }
+
+func (instance *Instance) Start() error {
+	if err := instance.StartListening(); err != nil {
+		return err
+	}
+	return nil
+}

@@ -8,5 +8,5 @@ type WriteRequest struct {
 
 type WriteResponse struct {
 	Num   int
-	Error error
+	Error *RpcError
 }

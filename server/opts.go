@@ -1,7 +1,11 @@
 package server
 
-type Opts struct{}
+type Opts struct {
+	ListenPort int
+}
 
 func NewOpts() *Opts {
-	return &Opts{}
+	return &Opts{
+		ListenPort: 1234,
+	}
 }

@@ -2,12 +2,16 @@ package server
 
 import (
 	"../rpc/types"
+	"log"
 )
 
 type WriterEndpoint struct {
 }
 
 func (endpoint *WriterEndpoint) Write(args *types.WriteRequest, resp *types.WriteResponse) error {
+	log.Printf("args %+v", args)
+	resp.Num = len(args.Times)
+	resp.Error = &types.RpcErrorNotImplemented
 	// @todo implement
 	return nil
 }

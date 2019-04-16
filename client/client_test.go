@@ -10,6 +10,7 @@ func TestNew(t *testing.T) {
 	c := client.New(opts)
 	if c == nil {
 		t.Error()
+		return
 	}
 
 	// new series
