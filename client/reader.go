@@ -8,6 +8,7 @@ func (series Series) Read(q Query) (res QueryResult) {
 	// request (single)
 	request := types.ReadRequest{
 		From: q.From,
+		To:   q.To,
 	}
 
 	// get

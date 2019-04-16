@@ -18,7 +18,7 @@ func NewReaderEndpoint() *ReaderEndpoint {
 }
 
 func (endpoint *ReaderEndpoint) Execute(args *types.ReadRequest, resp *types.ReadResponse) error {
-	log.Printf("args %+v", args)
+	log.Printf("reader args %+v", args)
 	// @todo implement read
 	resp.Error = &types.RpcErrorNotImplemented
 	return nil

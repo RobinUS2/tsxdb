@@ -18,7 +18,7 @@ func NewWriterEndpoint() *WriterEndpoint {
 }
 
 func (endpoint *WriterEndpoint) Execute(args *types.WriteRequest, resp *types.WriteResponse) error {
-	log.Printf("args %+v", args)
+	log.Printf("writer args %+v", args)
 	numTimes := len(args.Times)
 	numValues := len(args.Values)
 	if numTimes != numValues {
