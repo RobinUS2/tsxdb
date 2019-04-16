@@ -1,6 +1,6 @@
 package client
 
-import "github.com/pkg/errors"
+import "errors"
 
 type QueryBuilder struct {
 	series *Series

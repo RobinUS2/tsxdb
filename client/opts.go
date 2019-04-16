@@ -1,7 +1,15 @@
 package client
 
-type Opts struct{}
+import (
+	"../rpc"
+)
+
+type Opts struct {
+	rpc.OptsConnection
+}
 
 func NewOpts() *Opts {
-	return &Opts{}
+	return &Opts{
+		OptsConnection: rpc.NewOptsConnection(),
+	}
 }

@@ -10,3 +10,5 @@ type WriteResponse struct {
 	Num   int
 	Error *RpcError
 }
+
+var EndpointWriter = Endpoint("Writer")

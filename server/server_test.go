@@ -3,6 +3,7 @@ package server_test
 import (
 	"../rpc/types"
 	"../server"
+	"fmt"
 	"net/rpc"
 	"testing"
 )
@@ -21,7 +22,8 @@ func TestNew(t *testing.T) {
 		t.Error(err)
 	}
 
-	client, err := rpc.Dial("tcp", "127.0.0.1:1234")
+	// execute a write
+	client, err := rpc.Dial("tcp", opts.ListenHost+fmt.Sprintf(":%d", opts.ListenPort))
 	if err != nil {
 		t.Fatal("dialing:", err)
 	}
@@ -32,14 +34,18 @@ func TestNew(t *testing.T) {
 		Values: []float64{5.0, 6.0},
 	}
 	var reply *types.WriteResponse
-	err = client.Call("WriterEndpoint.Write", params, &reply)
+	var endpoint = server.NewWriterEndpoint().name().String()
+	err = client.Call(endpoint+".Execute", params, &reply)
 	if err != nil {
-		t.Fatal("arith error:", err)
+		t.Error("error:", err)
 	}
 	if reply.Num != 2 {
 		t.Error(reply)
 	}
 	if reply.Error != nil {
 		t.Error(reply.Error.String())
+	}
+	if err := client.Close(); err != nil {
+		t.Error(err)
 	}
 }

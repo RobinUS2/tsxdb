@@ -2,6 +2,7 @@ package client_test
 
 import (
 	"../client"
+	"../server"
 	"testing"
 )
 
@@ -19,6 +20,11 @@ func TestNew(t *testing.T) {
 	// timestamp
 	now := c.Now()
 	const oneMinute = 60 * 1000
+
+	// start server
+	s := server.New(server.NewOpts())
+	s.Init()
+	s.StartListening()
 
 	// write
 	{

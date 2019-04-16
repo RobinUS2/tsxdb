@@ -5,6 +5,7 @@ package types
 type RpcError string
 
 var RpcErrorNotImplemented RpcError = "not implemented"
+var RpcErrorNumTimeValuePairsMisMatch RpcError = "mismatch between number of time&value pairs"
 
 func (err RpcError) String() string {
 	return string(err)

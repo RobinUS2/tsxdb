@@ -1,11 +1,15 @@
 package server
 
+import (
+	"../rpc"
+)
+
 type Opts struct {
-	ListenPort int
+	rpc.OptsConnection
 }
 
 func NewOpts() *Opts {
 	return &Opts{
-		ListenPort: 1234,
+		OptsConnection: rpc.NewOptsConnection(),
 	}
 }
