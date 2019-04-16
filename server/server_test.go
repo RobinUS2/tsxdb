@@ -11,4 +11,7 @@ func TestNew(t *testing.T) {
 	if s == nil {
 		t.Error()
 	}
+	if err := s.Init(); err != nil {
+		t.Error(err)
+	}
 }
