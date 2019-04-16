@@ -23,8 +23,8 @@ func TestNew(t *testing.T) {
 
 	// start server
 	s := server.New(server.NewOpts())
-	s.Init()
-	s.StartListening()
+	_ = s.Init()
+	_ = s.StartListening()
 
 	// write
 	{

@@ -19,3 +19,9 @@ func (name EndpointName) String() string {
 type EndpointOpts struct {
 	server *Instance
 }
+
+func registerEndpoint(endpoint AbstractEndpoint) {
+	endpointsMux.Lock()
+	endpoints = append(endpoints, endpoint)
+	endpointsMux.Unlock()
+}

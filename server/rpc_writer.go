@@ -5,6 +5,11 @@ import (
 	"log"
 )
 
+func init() {
+	// init on module load
+	registerEndpoint(NewWriterEndpoint())
+}
+
 type WriterEndpoint struct {
 }
 
@@ -35,11 +40,4 @@ func (endpoint *WriterEndpoint) register(opts *EndpointOpts) error {
 
 func (endpoint *WriterEndpoint) name() EndpointName {
 	return EndpointName(types.EndpointWriter)
-}
-
-func init() {
-	endpoint := NewWriterEndpoint()
-	endpointsMux.Lock()
-	endpoints = append(endpoints, endpoint)
-	endpointsMux.Unlock()
 }

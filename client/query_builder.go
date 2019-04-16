@@ -30,10 +30,16 @@ func (builder *QueryBuilder) Execute() (res QueryResult) {
 		res.Error = errors.New("missing time range")
 		return
 	}
-	return
+
+	// query
+	query := Query{
+		From: builder.from,
+		To:   builder.to,
+	}
+	return builder.series.Read(query)
 }
 
-type QueryResult struct {
-	Error error
-	// @todo values
+type Query struct {
+	From uint64
+	To   uint64
 }
