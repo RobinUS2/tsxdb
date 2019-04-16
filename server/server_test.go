@@ -34,8 +34,7 @@ func TestNew(t *testing.T) {
 		Values: []float64{5.0, 6.0},
 	}
 	var reply *types.WriteResponse
-	var endpoint = server.NewWriterEndpoint().name().String()
-	err = client.Call(endpoint+".Execute", params, &reply)
+	err = client.Call(types.EndpointWriter.String()+"."+types.MethodName, params, &reply)
 	if err != nil {
 		t.Error("error:", err)
 	}

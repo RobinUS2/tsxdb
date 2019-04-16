@@ -2,8 +2,10 @@ package client
 
 import (
 	"../rpc/types"
-	"log"
+	"errors"
 )
+
+var clientValidationErrMismatchSent = errors.New("mismatch between expected written values and received")
 
 func (series Series) Write(ts uint64, v float64) (res WriteResult) {
 	// request (single)
@@ -20,13 +22,22 @@ func (series Series) Write(ts uint64, v float64) (res WriteResult) {
 	}
 
 	// execute
-	log.Printf("sending %+v", request)
 	var response *types.WriteResponse
-	if err := conn.client.Call(types.EndpointWriter.String()+".Execute", request, &response); err != nil {
+	if err := conn.client.Call(types.EndpointWriter.String()+"."+types.MethodName, request, &response); err != nil {
 		res.Error = err
 		return
 	}
-	log.Printf("received %+v", response)
+	if response.Error != nil {
+		res.Error = response.Error.Error()
+		return
+	}
+
+	// validate num persisted
+	res.NumPersisted = response.Num
+	if res.NumPersisted != len(request.Values) {
+		res.Error = clientValidationErrMismatchSent
+		return
+	}
 
 	// close
 	if err := conn.client.Close(); err != nil {
@@ -40,5 +51,6 @@ func (series Series) Write(ts uint64, v float64) (res WriteResult) {
 // @todo batch write
 
 type WriteResult struct {
-	Error error
+	Error        error
+	NumPersisted int
 }
