@@ -2,6 +2,7 @@ package server
 
 import (
 	"../rpc/types"
+	"./backend/selector"
 	"log"
 )
 
@@ -11,6 +12,7 @@ func init() {
 }
 
 type WriterEndpoint struct {
+	server *Instance
 }
 
 func NewWriterEndpoint() *WriterEndpoint {
@@ -27,6 +29,15 @@ func (endpoint *WriterEndpoint) Execute(args *types.WriteRequest, resp *types.Wr
 	}
 	resp.Num = numTimes
 	resp.Error = &types.RpcErrorNotImplemented
+
+	// select
+	selectedStrategy, err := endpoint.server.backendSelector.SelectStrategy(selector.Context{})
+	if err != nil {
+		resp.Error = &types.RpcErrorBackendStrategyNotFound
+		return nil
+	}
+	log.Printf("selectedStrategy %+v", selectedStrategy)
+
 	// @todo implement real write
 	return nil
 }
@@ -35,6 +46,7 @@ func (endpoint *WriterEndpoint) register(opts *EndpointOpts) error {
 	if err := opts.server.rpc.RegisterName(endpoint.name().String(), endpoint); err != nil {
 		return err
 	}
+	endpoint.server = opts.server
 	return nil
 }
 

@@ -8,6 +8,7 @@ type RpcError string
 
 var RpcErrorNotImplemented RpcError = "not implemented"
 var RpcErrorNumTimeValuePairsMisMatch RpcError = "mismatch between number of time&value pairs"
+var RpcErrorBackendStrategyNotFound RpcError = "no backend strategy found"
 
 func (err RpcError) String() string {
 	return string(err)

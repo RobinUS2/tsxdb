@@ -11,6 +11,7 @@ func init() {
 }
 
 type ReaderEndpoint struct {
+	server *Instance
 }
 
 func NewReaderEndpoint() *ReaderEndpoint {
@@ -28,6 +29,7 @@ func (endpoint *ReaderEndpoint) register(opts *EndpointOpts) error {
 	if err := opts.server.rpc.RegisterName(endpoint.name().String(), endpoint); err != nil {
 		return err
 	}
+	endpoint.server = opts.server
 	return nil
 }
 
