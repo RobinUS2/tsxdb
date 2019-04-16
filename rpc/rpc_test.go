@@ -2,8 +2,8 @@ package rpc_test
 
 import (
 	"errors"
+	"fmt"
 	"net"
-	"net/http"
 	"net/rpc"
 	"testing"
 )
@@ -41,19 +41,33 @@ func TestNew(t *testing.T) {
 	{
 		arith := new(Arith)
 		server := rpc.NewServer()
-		server.Register(arith)
-		server.HandleHTTP(rpc.DefaultRPCPath, rpc.DefaultDebugPath)
+		if err := server.Register(arith); err != nil {
+			t.Error(err)
+		}
+		//server.HandleHTTP(rpc.DefaultRPCPath, rpc.DefaultDebugPath)
 		l, e := net.Listen("tcp", ":1234")
 		if e != nil {
 			t.Fatal("listen error:", e)
 		}
-		go http.Serve(l, nil)
+
+		go func() {
+			for {
+				// Get net.TCPConn object
+				conn, err := l.Accept()
+				if err != nil {
+					fmt.Println(err)
+					break
+				}
+
+				go server.ServeConn(conn)
+			}
+		}()
 	}
 
 	// client
 	{
 		const serverAddress = "127.0.0.1"
-		client, err := rpc.DialHTTP("tcp", serverAddress+":1234")
+		client, err := rpc.Dial("tcp", serverAddress+":1234")
 		if err != nil {
 			t.Fatal("dialing:", err)
 		}
@@ -65,6 +79,9 @@ func TestNew(t *testing.T) {
 		if err != nil {
 			t.Fatal("arith error:", err)
 		}
+		if reply != 56 {
+			t.Error(reply)
+		}
 		t.Logf("Arith: %d*%d=%d", args.A, args.B, reply)
 
 		// Asynchronous call
@@ -75,6 +92,9 @@ func TestNew(t *testing.T) {
 			t.Error(replyCall.Error)
 		}
 		v := replyCall.Reply.(*Quotient)
+		if v.Rem != 7 {
+			t.Error(v.Rem)
+		}
 		t.Logf("Divide %+v", v)
 		// check errors, print, etc.
 	}
