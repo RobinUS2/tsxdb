@@ -33,9 +33,7 @@ func (t *Arith) Divide(args *Args, quo *Quotient) error {
 }
 
 func TestNew(t *testing.T) {
-	// wait until calls complete
-	//wg := sync.WaitGroup{}
-	//wg.Add(1)
+	const network = "tcp"
 
 	// server
 	{
@@ -44,8 +42,7 @@ func TestNew(t *testing.T) {
 		if err := server.Register(arith); err != nil {
 			t.Error(err)
 		}
-		//server.HandleHTTP(rpc.DefaultRPCPath, rpc.DefaultDebugPath)
-		l, e := net.Listen("tcp", ":1234")
+		l, e := net.Listen(network, ":1234")
 		if e != nil {
 			t.Fatal("listen error:", e)
 		}
@@ -67,7 +64,7 @@ func TestNew(t *testing.T) {
 	// client
 	{
 		const serverAddress = "127.0.0.1"
-		client, err := rpc.Dial("tcp", serverAddress+":1234")
+		client, err := rpc.Dial(network, serverAddress+":1234")
 		if err != nil {
 			t.Fatal("dialing:", err)
 		}
