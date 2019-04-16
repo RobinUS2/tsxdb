@@ -32,7 +32,6 @@ func (t *Arith) Divide(args *Args, quo *Quotient) error {
 	return nil
 }
 
-
 func TestNew(t *testing.T) {
 	// wait until calls complete
 	//wg := sync.WaitGroup{}
@@ -53,13 +52,13 @@ func TestNew(t *testing.T) {
 	// client
 	{
 		const serverAddress = "127.0.0.1"
-		client, err := rpc.DialHTTP("tcp", serverAddress + ":1234")
+		client, err := rpc.DialHTTP("tcp", serverAddress+":1234")
 		if err != nil {
 			t.Fatal("dialing:", err)
 		}
 
 		// sync
-		args := &Args{7,8}
+		args := &Args{7, 8}
 		var reply int
 		err = client.Call("Arith.Multiply", args, &reply)
 		if err != nil {
@@ -70,7 +69,7 @@ func TestNew(t *testing.T) {
 		// Asynchronous call
 		quotient := new(Quotient)
 		divCall := client.Go("Arith.Divide", args, quotient, nil)
-		replyCall := <-divCall.Done	// will be equal to divCall
+		replyCall := <-divCall.Done // will be equal to divCall
 		if replyCall.Error != nil {
 			t.Error(replyCall.Error)
 		}
