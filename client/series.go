@@ -1,14 +1,23 @@
 package client
 
 type Series struct {
-	client *Instance
+	client    *Instance
+	tags      []string
+	namespace int
 }
 
-type SeriesOpt struct {
+func (series *Series) Namespace() int {
+	return series.namespace
+}
+
+func (series Series) Tags() []string {
+	return series.tags
 }
 
 func (client *Instance) Series(name string, opts ...SeriesOpt) *Series {
-	return NewSeries(client)
+	s := NewSeries(client)
+	s.applyOpts(opts)
+	return s
 }
 
 func NewSeries(client *Instance) *Series {

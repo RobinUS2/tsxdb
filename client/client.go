@@ -9,3 +9,7 @@ func New(opts *Opts) *Instance {
 		opts: opts,
 	}
 }
+
+func DefaultClient() *Instance {
+	return New(NewOpts())
+}
