@@ -4,6 +4,7 @@ type Series struct {
 	client    *Instance
 	tags      []string
 	namespace int
+	id        uint64
 }
 
 func (series *Series) Namespace() int {
@@ -23,5 +24,6 @@ func (client *Instance) Series(name string, opts ...SeriesOpt) *Series {
 func NewSeries(client *Instance) *Series {
 	return &Series{
 		client: client,
+		id:     1234, // @todo
 	}
 }

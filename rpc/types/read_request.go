@@ -3,7 +3,7 @@ package types
 type ReadRequest struct {
 	From uint64
 	To   uint64
-	// @todo series
+	SeriesIdentifier
 }
 
 type ReadResponse struct {

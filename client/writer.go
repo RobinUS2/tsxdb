@@ -12,6 +12,9 @@ func (series Series) Write(ts uint64, v float64) (res WriteResult) {
 	request := types.WriteRequest{
 		Times:  []uint64{ts},
 		Values: []float64{v},
+		SeriesIdentifier: types.SeriesIdentifier{
+			Id: series.id,
+		},
 	}
 
 	// get

@@ -1,9 +1,7 @@
 package server
 
 import (
-	"./backend/memory"
-	"./backend/selector"
-	"./backend/strategy"
+	"./backend"
 	"log"
 	"net/rpc"
 )
@@ -11,7 +9,7 @@ import (
 type Instance struct {
 	opts            *Opts
 	rpc             *rpc.Server
-	backendSelector *selector.Selector
+	backendSelector *backend.Selector
 }
 
 func New(opts *Opts) *Instance {
@@ -33,8 +31,8 @@ func (instance *Instance) Init() error {
 
 	// testing backend strategy in memory
 	// @todo from config
-	instance.backendSelector = selector.NewSelector()
-	myStrategy := strategy.NewSimpleStrategy(memory.NewInstance())
+	instance.backendSelector = backend.NewSelector()
+	myStrategy := backend.NewSimpleStrategy(backend.NewMemoryBackend())
 	if err := instance.backendSelector.AddStrategy(myStrategy); err != nil {
 		return err
 	}

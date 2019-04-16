@@ -9,6 +9,9 @@ func (series Series) Read(q Query) (res QueryResult) {
 	request := types.ReadRequest{
 		From: q.From,
 		To:   q.To,
+		SeriesIdentifier: types.SeriesIdentifier{
+			Id: series.id,
+		},
 	}
 
 	// get

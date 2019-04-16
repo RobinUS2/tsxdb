@@ -1,26 +1,22 @@
-package selector
-
-import (
-	"../strategy"
-)
+package backend
 
 type Selector struct {
-	strategies []strategy.Abstract
+	strategies []AbstractStrategy
 }
 
-func (selector *Selector) SelectStrategy(context Context) (strategy.Abstract, error) {
+func (selector *Selector) SelectStrategy(context Context) (AbstractStrategy, error) {
 	// @todo proper implementation
 	return selector.strategies[0], nil
 }
 
-func (selector *Selector) AddStrategy(strategy strategy.Abstract) error {
+func (selector *Selector) AddStrategy(strategy AbstractStrategy) error {
 	selector.strategies = append(selector.strategies, strategy)
 	return nil
 }
 
 func NewSelector() *Selector {
 	return &Selector{
-		strategies: make([]strategy.Abstract, 0),
+		strategies: make([]AbstractStrategy, 0),
 	}
 }
 

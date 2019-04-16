@@ -2,7 +2,7 @@ package server
 
 import (
 	"../rpc/types"
-	"./backend/selector"
+	"./backend"
 	"log"
 )
 
@@ -27,18 +27,27 @@ func (endpoint *WriterEndpoint) Execute(args *types.WriteRequest, resp *types.Wr
 		resp.Error = &types.RpcErrorNumTimeValuePairsMisMatch
 		return nil
 	}
-	resp.Num = numTimes
-	resp.Error = &types.RpcErrorNotImplemented
 
 	// select
-	selectedStrategy, err := endpoint.server.backendSelector.SelectStrategy(selector.Context{})
+	selectedStrategy, err := endpoint.server.backendSelector.SelectStrategy(backend.Context{})
 	if err != nil {
 		resp.Error = &types.RpcErrorBackendStrategyNotFound
 		return nil
 	}
-	log.Printf("selectedStrategy %+v", selectedStrategy)
+	b := selectedStrategy.GetBackend()
 
-	// @todo implement real write
+	// write
+	for idx, ts := range args.Times {
+		val := args.Values[idx]
+		err := b.Write(args.SeriesIdentifier.Namespace, args.SeriesIdentifier.Id, ts, val)
+		if err != nil {
+			e := types.RpcError(err.Error())
+			resp.Error = &e
+			return nil
+		}
+	}
+	resp.Num = numTimes
+
 	return nil
 }
 

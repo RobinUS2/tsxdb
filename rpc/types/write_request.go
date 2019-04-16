@@ -3,7 +3,7 @@ package types
 type WriteRequest struct {
 	Times  []uint64
 	Values []float64
-	// @todo series
+	SeriesIdentifier
 }
 
 type WriteResponse struct {
