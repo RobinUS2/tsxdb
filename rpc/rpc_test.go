@@ -40,8 +40,9 @@ func TestNew(t *testing.T) {
 	// server
 	{
 		arith := new(Arith)
-		rpc.Register(arith)
-		rpc.HandleHTTP()
+		server := rpc.NewServer()
+		server.Register(arith)
+		server.HandleHTTP(rpc.DefaultRPCPath, rpc.DefaultDebugPath)
 		l, e := net.Listen("tcp", ":1234")
 		if e != nil {
 			t.Fatal("listen error:", e)
