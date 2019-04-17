@@ -21,6 +21,10 @@ type Instance struct {
 	pendingRequests int64
 }
 
+func (instance *Instance) Opts() *Opts {
+	return instance.opts
+}
+
 func New(opts *Opts) *Instance {
 	return &Instance{
 		opts:         opts,

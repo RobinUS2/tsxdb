@@ -3,18 +3,28 @@ package client_test
 import (
 	"../client"
 	"../server"
+	"sync/atomic"
 	"testing"
 	"time"
 )
 
-func NewTestClient() *client.Instance {
+func NewTestClient(server *server.Instance) *client.Instance {
 	opts := client.NewOpts()
+	if server != nil {
+		opts.ListenPort = server.Opts().ListenPort
+		opts.ListenHost = server.Opts().ListenHost
+	}
 	c := client.New(opts)
 	return c
 }
 
+var lastPort uint64 = 1234
+
 func NewTestServer(init bool, listen bool) *server.Instance {
-	s := server.New(server.NewOpts())
+	port := atomic.AddUint64(&lastPort, 1)
+	opts := server.NewOpts()
+	opts.ListenPort = int(port)
+	s := server.New(opts)
 	if init {
 		if err := s.Init(); err != nil {
 			panic(err)
@@ -29,7 +39,9 @@ func NewTestServer(init bool, listen bool) *server.Instance {
 }
 
 func TestNew(t *testing.T) {
-	c := NewTestClient()
+	// start server
+	s := NewTestServer(true, true)
+	c := NewTestClient(s)
 	if c == nil {
 		t.Error()
 		return
@@ -42,9 +54,6 @@ func TestNew(t *testing.T) {
 	now := c.Now()
 	const oneMinute = 60 * 1000
 	const writeValue = 10.1
-
-	// start server
-	s := NewTestServer(true, true)
 
 	// write
 	{
@@ -88,8 +97,7 @@ func TestNew(t *testing.T) {
 func TestWritePerformance(t *testing.T) {
 	// start server
 	s := NewTestServer(true, true)
-
-	c := NewTestClient()
+	c := NewTestClient(s)
 	now := c.Now()
 	startTime := time.Now()
 	const minTime = 1 * time.Second
@@ -119,8 +127,7 @@ func TestWritePerformance(t *testing.T) {
 func TestReadPerformance(t *testing.T) {
 	// start server
 	s := NewTestServer(true, true)
-
-	c := NewTestClient()
+	c := NewTestClient(s)
 	now := c.Now()
 	series := c.Series("benchmarkSeriesRead")
 	const writeValue = 10.1
@@ -161,8 +168,7 @@ func TestReadPerformance(t *testing.T) {
 func TestNoOpPerformance(t *testing.T) {
 	// start server
 	s := NewTestServer(true, true)
-
-	c := NewTestClient()
+	c := NewTestClient(s)
 	series := c.Series("benchmarkSeriesNoOp")
 
 	startTime := time.Now()
