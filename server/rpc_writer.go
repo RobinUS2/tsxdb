@@ -3,7 +3,6 @@ package server
 import (
 	"../rpc/types"
 	"./backend"
-	"log"
 )
 
 func init() {
@@ -20,7 +19,6 @@ func NewWriterEndpoint() *WriterEndpoint {
 }
 
 func (endpoint *WriterEndpoint) Execute(args *types.WriteRequest, resp *types.WriteResponse) error {
-	log.Printf("writer args %+v", args)
 	numTimes := len(args.Times)
 	numValues := len(args.Values)
 	if numTimes != numValues {

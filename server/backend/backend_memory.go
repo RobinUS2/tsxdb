@@ -2,7 +2,6 @@ package backend
 
 import (
 	"errors"
-	"log"
 	"math/rand"
 	"sync"
 )
@@ -40,9 +39,6 @@ func (instance *MemoryBackend) Write(context ContextWrite, timestamps []uint64, 
 		// write
 		instance.data[context.Namespace][context.Series][tsWithRand] = value
 	}
-
-	// debug print
-	log.Printf("%+v", instance.data)
 
 	// unlock
 	instance.dataMux.Unlock()

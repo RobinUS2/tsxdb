@@ -23,6 +23,7 @@ func (series Series) Write(ts uint64, v float64) (res WriteResult) {
 		res.Error = err
 		return
 	}
+	defer panicOnErrorClose(conn.Close)
 
 	// execute
 	var response *types.WriteResponse
@@ -39,12 +40,6 @@ func (series Series) Write(ts uint64, v float64) (res WriteResult) {
 	res.NumPersisted = response.Num
 	if res.NumPersisted != len(request.Values) {
 		res.Error = clientValidationErrMismatchSent
-		return
-	}
-
-	// close
-	if err := conn.client.Close(); err != nil {
-		res.Error = err
 		return
 	}
 

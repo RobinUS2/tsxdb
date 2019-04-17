@@ -20,6 +20,7 @@ func (series Series) Read(q Query) (res QueryResult) {
 		res.Error = err
 		return
 	}
+	defer panicOnErrorClose(conn.Close)
 
 	// execute
 	var response *types.ReadResponse
@@ -32,12 +33,6 @@ func (series Series) Read(q Query) (res QueryResult) {
 		return
 	}
 	res.Results = response.Results
-
-	// close
-	if err := conn.client.Close(); err != nil {
-		res.Error = err
-		return
-	}
 
 	return
 }

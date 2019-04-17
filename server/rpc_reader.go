@@ -3,7 +3,6 @@ package server
 import (
 	"../rpc/types"
 	"./backend"
-	"log"
 )
 
 func init() {
@@ -20,8 +19,6 @@ func NewReaderEndpoint() *ReaderEndpoint {
 }
 
 func (endpoint *ReaderEndpoint) Execute(args *types.ReadRequest, resp *types.ReadResponse) error {
-	log.Printf("reader args %+v", args)
-
 	// backend
 	c := backend.ContextBackend{}
 	c.Series = args.SeriesIdentifier.Id
