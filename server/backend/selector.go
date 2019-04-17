@@ -4,7 +4,7 @@ type Selector struct {
 	strategies []AbstractStrategy
 }
 
-func (selector *Selector) SelectStrategy(context Context) (AbstractStrategy, error) {
+func (selector *Selector) SelectStrategy(context ContextBackend) (AbstractStrategy, error) {
 	// @todo proper implementation
 	return selector.strategies[0], nil
 }
@@ -18,8 +18,4 @@ func NewSelector() *Selector {
 	return &Selector{
 		strategies: make([]AbstractStrategy, 0),
 	}
-}
-
-type Context struct {
-	// details to determine context (e.g. series / metadata of series for persistence level)
 }

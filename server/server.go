@@ -2,6 +2,7 @@ package server
 
 import (
 	"./backend"
+	"./rollup"
 	"log"
 	"net/rpc"
 )
@@ -10,12 +11,14 @@ type Instance struct {
 	opts            *Opts
 	rpc             *rpc.Server
 	backendSelector *backend.Selector
+	rollupReader    *rollup.Reader
 }
 
 func New(opts *Opts) *Instance {
 	return &Instance{
-		opts: opts,
-		rpc:  rpc.NewServer(),
+		opts:         opts,
+		rpc:          rpc.NewServer(),
+		rollupReader: rollup.NewReader(),
 	}
 }
 

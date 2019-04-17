@@ -28,23 +28,23 @@ func (endpoint *WriterEndpoint) Execute(args *types.WriteRequest, resp *types.Wr
 		return nil
 	}
 
-	// select
-	selectedStrategy, err := endpoint.server.backendSelector.SelectStrategy(backend.Context{})
+	// backend
+	c := backend.ContextBackend{}
+	c.Series = args.SeriesIdentifier.Id
+	// @todo namespace
+	backendInstance, err := endpoint.server.SelectBackend(c)
 	if err != nil {
 		resp.Error = &types.RpcErrorBackendStrategyNotFound
 		return nil
 	}
-	b := selectedStrategy.GetBackend()
 
 	// write
-	for idx, ts := range args.Times {
-		val := args.Values[idx]
-		err := b.Write(args.SeriesIdentifier.Namespace, args.SeriesIdentifier.Id, ts, val)
-		if err != nil {
-			e := types.RpcError(err.Error())
-			resp.Error = &e
-			return nil
-		}
+	writeContext := backend.ContextWrite{Context: c.Context}
+	err = backendInstance.Write(writeContext, args.Times, args.Values)
+	if err != nil {
+		e := types.RpcError(err.Error())
+		resp.Error = &e
+		return nil
 	}
 	resp.Num = numTimes
 

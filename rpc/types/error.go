@@ -17,3 +17,12 @@ func (err RpcError) String() string {
 func (err RpcError) Error() error {
 	return errors.New(err.String())
 }
+
+func WrapErrorPointer(err error) *RpcError {
+	return WrapErrorStringPointer(err.Error())
+}
+
+func WrapErrorStringPointer(err string) *RpcError {
+	e := RpcError(err)
+	return &e
+}

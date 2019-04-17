@@ -79,7 +79,7 @@ func TestNew(t *testing.T) {
 		if reply != 56 {
 			t.Error(reply)
 		}
-		t.Logf("Arith: %d*%d=%d", args.A, args.B, reply)
+		//t.Logf("Arith: %d*%d=%d", args.A, args.B, reply)
 
 		// Asynchronous call
 		quotient := new(Quotient)
@@ -92,7 +92,7 @@ func TestNew(t *testing.T) {
 		if v.Rem != 7 {
 			t.Error(v.Rem)
 		}
-		t.Logf("Divide %+v", v)
+		//t.Logf("Divide %+v", v)
 		// check errors, print, etc.
 	}
 }

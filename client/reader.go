@@ -22,7 +22,7 @@ func (series Series) Read(q Query) (res QueryResult) {
 	}
 
 	// execute
-	var response *types.WriteResponse
+	var response *types.ReadResponse
 	if err := conn.client.Call(types.EndpointReader.String()+"."+types.MethodName, request, &response); err != nil {
 		res.Error = err
 		return
@@ -31,6 +31,7 @@ func (series Series) Read(q Query) (res QueryResult) {
 		res.Error = response.Error.Error()
 		return
 	}
+	res.Results = response.Results
 
 	// close
 	if err := conn.client.Close(); err != nil {
@@ -42,5 +43,6 @@ func (series Series) Read(q Query) (res QueryResult) {
 }
 
 type QueryResult struct {
-	Error error
+	Error   error
+	Results map[uint64]float64
 }

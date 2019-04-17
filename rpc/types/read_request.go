@@ -7,7 +7,8 @@ type ReadRequest struct {
 }
 
 type ReadResponse struct {
-	Error *RpcError
+	Error   *RpcError
+	Results map[uint64]float64
 }
 
 var EndpointReader = Endpoint("Reader")
