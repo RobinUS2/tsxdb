@@ -8,9 +8,12 @@ import (
 
 const maxPaddingSize = 0.1
 
+type Namespace int
+type Series int
+
 type MemoryBackend struct {
 	// @todo partition by timestamp!!!
-	data    map[int]map[uint64]map[float64]float64
+	data    map[Namespace]map[Series]map[float64]float64
 	dataMux sync.RWMutex
 }
 
@@ -22,6 +25,9 @@ func (instance *MemoryBackend) Write(context ContextWrite, timestamps []uint64, 
 	if len(timestamps) != len(values) {
 		return errors.New("mismatch pairs")
 	}
+
+	namespace := Namespace(context.Namespace)
+	seriesId := Series(context.Series)
 
 	// obtain write lock
 	instance.dataMux.Lock()
@@ -37,7 +43,7 @@ func (instance *MemoryBackend) Write(context ContextWrite, timestamps []uint64, 
 		tsWithRand := float64(timestamp) + (rand.Float64() * maxPaddingSize)
 
 		// write
-		instance.data[context.Namespace][context.Series][tsWithRand] = value
+		instance.data[namespace][seriesId][tsWithRand] = value
 	}
 
 	// unlock
@@ -47,22 +53,26 @@ func (instance *MemoryBackend) Write(context ContextWrite, timestamps []uint64, 
 }
 
 func (instance *MemoryBackend) __notLockedInitMaps(context Context, autoCreate bool) (available bool) {
-	if _, found := instance.data[context.Namespace]; !found {
+	namespace := Namespace(context.Namespace)
+	if _, found := instance.data[namespace]; !found {
 		if !autoCreate {
 			return false
 		}
-		instance.data[context.Namespace] = make(map[uint64]map[float64]float64)
+		instance.data[namespace] = make(map[Series]map[float64]float64)
 	}
-	if _, found := instance.data[context.Namespace][context.Series]; !found {
+	series := Series(context.Series)
+	if _, found := instance.data[namespace][series]; !found {
 		if !autoCreate {
 			return false
 		}
-		instance.data[context.Namespace][context.Series] = make(map[float64]float64)
+		instance.data[namespace][series] = make(map[float64]float64)
 	}
 	return true
 }
 
 func (instance *MemoryBackend) Read(context ContextRead) (res ReadResult) {
+	namespace := Namespace(context.Namespace)
+	seriesId := Series(context.Series)
 	instance.dataMux.RLock()
 	if !instance.__notLockedInitMaps(context.Context, false) {
 		// not available in the store
@@ -70,7 +80,7 @@ func (instance *MemoryBackend) Read(context ContextRead) (res ReadResult) {
 		instance.dataMux.RUnlock()
 		return
 	}
-	series := instance.data[context.Namespace][context.Series]
+	series := instance.data[namespace][seriesId]
 	instance.dataMux.RUnlock()
 
 	// prune
@@ -96,6 +106,6 @@ func (instance *MemoryBackend) Read(context ContextRead) (res ReadResult) {
 
 func NewMemoryBackend() *MemoryBackend {
 	return &MemoryBackend{
-		data: make(map[int]map[uint64]map[float64]float64),
+		data: make(map[Namespace]map[Series]map[float64]float64),
 	}
 }
