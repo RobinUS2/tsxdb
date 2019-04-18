@@ -57,6 +57,7 @@ func (instance *Instance) closeRpc() error {
 }
 
 func (instance *Instance) ServeConn(conn net.Conn) {
+	// @todo timeouts
 	// @todo check blocked
 	atomic.AddInt64(&instance.pendingRequests, 1)
 	log.Printf("connection from %v", conn.RemoteAddr())

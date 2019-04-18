@@ -16,6 +16,7 @@ func (series Series) Write(ts uint64, v float64) (res WriteResult) {
 			Id: series.id,
 		},
 	}
+	// @todo inject session ticket
 
 	// get
 	conn, err := series.client.GetConnection()

@@ -64,28 +64,8 @@ func (endpoint *AuthEndpoint) Execute(args *types.AuthRequest, resp *types.AuthR
 		endpoint.server.sessionTokensMux.Unlock()
 	} else {
 		// stage 2
-		log.Printf("stage 2 %+v", args)
-		if args.SessionTicket.Id == 0 {
-			resp.Error = types.WrapErrorPointer(errors.New("missing session id"))
-			return nil
-		}
-		if args.SessionTicket.Nonce == 0 {
-			resp.Error = types.WrapErrorPointer(errors.New("missing session nonce"))
-			return nil
-		}
-		endpoint.server.sessionTokensMux.RLock()
-		token := endpoint.server.sessionTokens[args.SessionTicket.Id]
-		endpoint.server.sessionTokensMux.RUnlock()
-		if len(token) != 32 {
-			resp.Error = types.WrapErrorStringPointer("session continuation token not found")
-			return nil
-		}
-		log.Printf("token should be %s", base64.StdEncoding.EncodeToString(token))
-
-		// compute of nonce
-		expectedSessionSignature := tools.HmacInt(token, args.SessionTicket.Nonce)
-		if expectedSessionSignature != args.SessionTicket.Signature {
-			resp.Error = &types.RpcErrorAuthFailed
+		if err := endpoint.server.validateSession(args.SessionTicket); err != nil {
+			resp.Error = types.WrapErrorPointer(err)
 			return nil
 		}
 	}
@@ -104,4 +84,27 @@ func (endpoint *AuthEndpoint) register(opts *EndpointOpts) error {
 
 func (endpoint *AuthEndpoint) name() EndpointName {
 	return EndpointName(types.EndpointAuth)
+}
+
+func (instance *Instance) validateSession(ticket types.SessionTicket) error {
+	if ticket.Id == 0 {
+		return errors.New("missing session id")
+	}
+	if ticket.Nonce == 0 {
+		return errors.New("missing session nonce")
+	}
+	instance.sessionTokensMux.RLock()
+	token := instance.sessionTokens[ticket.Id]
+	instance.sessionTokensMux.RUnlock()
+	if len(token) != 32 {
+		return errors.New("session continuation token not found")
+	}
+	log.Printf("token should be %s", base64.StdEncoding.EncodeToString(token))
+
+	// compute of nonce
+	expectedSessionSignature := tools.HmacInt(token, ticket.Nonce)
+	if expectedSessionSignature != ticket.Signature {
+		return types.RpcErrorAuthFailed.Error()
+	}
+	return nil
 }

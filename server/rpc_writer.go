@@ -19,6 +19,12 @@ func NewWriterEndpoint() *WriterEndpoint {
 }
 
 func (endpoint *WriterEndpoint) Execute(args *types.WriteRequest, resp *types.WriteResponse) error {
+	// auth
+	if err := endpoint.server.validateSession(args.SessionTicket); err != nil {
+		resp.Error = &types.RpcErrorAuthFailed
+		return nil
+	}
+
 	numTimes := len(args.Times)
 	numValues := len(args.Values)
 	if numTimes != numValues {

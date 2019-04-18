@@ -19,6 +19,12 @@ func NewReaderEndpoint() *ReaderEndpoint {
 }
 
 func (endpoint *ReaderEndpoint) Execute(args *types.ReadRequest, resp *types.ReadResponse) error {
+	// auth
+	if err := endpoint.server.validateSession(args.SessionTicket); err != nil {
+		resp.Error = &types.RpcErrorAuthFailed
+		return nil
+	}
+
 	// backend
 	c := backend.ContextBackend{}
 	c.Series = args.SeriesIdentifier.Id

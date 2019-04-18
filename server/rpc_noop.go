@@ -18,6 +18,11 @@ func NewNoOpEndpoint() *NoOpEndpoint {
 }
 
 func (endpoint *NoOpEndpoint) Execute(args *types.ReadRequest, resp *types.ReadResponse) error {
+	// auth
+	if err := endpoint.server.validateSession(args.SessionTicket); err != nil {
+		resp.Error = &types.RpcErrorAuthFailed
+		return nil
+	}
 	return nil
 }
 

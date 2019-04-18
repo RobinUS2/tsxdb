@@ -13,6 +13,7 @@ func (series Series) Read(q Query) (res QueryResult) {
 			Id: series.id,
 		},
 	}
+	// @todo inject session ticket
 
 	// get
 	conn, err := series.client.GetConnection()
