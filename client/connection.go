@@ -1,6 +1,7 @@
 package client
 
 import (
+	rpc2 "../rpc"
 	"../rpc/types"
 	"../tools"
 	"crypto/rand"
@@ -85,7 +86,7 @@ func (conn *ManagedConnection) Close() error {
 	return nil
 }
 
-func (conn *ManagedConnection) basicAuthRequest(client *Instance) (request types.AuthRequest, err error) {
+func BasicAuthRequest(opts rpc2.OptsConnection) (request types.AuthRequest, err error) {
 	// random data
 	var nonce = make([]byte, 32)
 	_, err = rand.Read(nonce)
@@ -95,7 +96,7 @@ func (conn *ManagedConnection) basicAuthRequest(client *Instance) (request types
 	}
 
 	// signature
-	signature, _ := tools.Hmac([]byte(client.opts.AuthToken), nonce)
+	signature, _ := tools.Hmac([]byte(opts.AuthToken), nonce)
 
 	// request (single)
 	request = types.AuthRequest{
@@ -136,7 +137,7 @@ func (conn *ManagedConnection) auth(client *Instance) error {
 	var sessionSecret []byte
 	{
 		// phase 1 initial payload
-		request, err := conn.basicAuthRequest(client)
+		request, err := BasicAuthRequest(client.opts.OptsConnection)
 		if err != nil {
 			return err
 		}
@@ -164,7 +165,7 @@ func (conn *ManagedConnection) auth(client *Instance) error {
 
 	// second stage
 	{
-		request, err := conn.basicAuthRequest(client)
+		request, err := BasicAuthRequest(client.opts.OptsConnection)
 		if err != nil {
 			return err
 		}
