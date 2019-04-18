@@ -8,7 +8,6 @@ import (
 	"crypto/sha512"
 	"encoding/base64"
 	"errors"
-	"log"
 	insecureRand "math/rand"
 )
 
@@ -99,7 +98,7 @@ func (instance *Instance) validateSession(ticket types.SessionTicket) error {
 	if len(token) != 32 {
 		return errors.New("session continuation token not found")
 	}
-	log.Printf("token should be %s", base64.StdEncoding.EncodeToString(token))
+	//log.Printf("token should be %s", base64.StdEncoding.EncodeToString(token))
 
 	// compute of nonce
 	expectedSessionSignature := tools.HmacInt(token, ticket.Nonce)

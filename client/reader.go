@@ -13,7 +13,6 @@ func (series Series) Read(q Query) (res QueryResult) {
 			Id: series.id,
 		},
 	}
-	// @todo inject session ticket
 
 	// get
 	conn, err := series.client.GetConnection()
@@ -22,6 +21,9 @@ func (series Series) Read(q Query) (res QueryResult) {
 		return
 	}
 	defer panicOnErrorClose(conn.Close)
+
+	// session data
+	request.SessionTicket = conn.getSessionTicket()
 
 	// execute
 	var response *types.ReadResponse

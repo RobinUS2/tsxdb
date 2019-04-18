@@ -57,19 +57,15 @@ func (instance *Instance) closeRpc() error {
 }
 
 func (instance *Instance) ServeConn(conn net.Conn) {
-	// @todo timeouts
-	// @todo check blocked
 	atomic.AddInt64(&instance.pendingRequests, 1)
-	log.Printf("connection from %v", conn.RemoteAddr())
+	//log.Printf("connection from %v", conn.RemoteAddr())
 	instance.rpc.ServeConn(conn)
 	atomic.AddInt64(&instance.pendingRequests, -1)
 
 	// auth timeout
 	go func() {
-		time.Sleep(100 * time.Millisecond)
-		log.Printf("check auth from %v", conn.RemoteAddr())
-		// @todo really check
-		// @todo check errors, block host from connection
+		time.Sleep(60 * time.Second)
+		//log.Printf("check auth from %v", conn.RemoteAddr())
 		_ = conn.Close()
 	}()
 }

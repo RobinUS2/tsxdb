@@ -8,7 +8,6 @@ import (
 func (series Series) NoOp() error {
 	// request (single)
 	request := types.NoOpRequest{}
-	// @todo inject session ticket
 
 	// get
 	conn, err := series.client.GetConnection()
@@ -16,6 +15,9 @@ func (series Series) NoOp() error {
 		return err
 	}
 	defer panicOnErrorClose(conn.Close)
+
+	// session data
+	request.SessionTicket = conn.getSessionTicket()
 
 	// execute
 	var response *types.NoOpResponse

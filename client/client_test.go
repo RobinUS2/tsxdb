@@ -10,38 +10,6 @@ import (
 
 const token = "verySecure123@#$"
 
-func NewTestClient(server *server.Instance) *client.Instance {
-	opts := client.NewOpts()
-	if server != nil {
-		opts.ListenPort = server.Opts().ListenPort
-		opts.ListenHost = server.Opts().ListenHost
-		opts.AuthToken = server.Opts().AuthToken
-	}
-	c := client.New(opts)
-	return c
-}
-
-var lastPort uint64 = 1234
-
-func NewTestServer(init bool, listen bool) *server.Instance {
-	port := atomic.AddUint64(&lastPort, 1)
-	opts := server.NewOpts()
-	opts.ListenPort = int(port)
-	opts.AuthToken = token
-	s := server.New(opts)
-	if init {
-		if err := s.Init(); err != nil {
-			panic(err)
-		}
-	}
-	if listen {
-		if err := s.StartListening(); err != nil {
-			panic(err)
-		}
-	}
-	return s
-}
-
 func TestNew(t *testing.T) {
 	// start server
 	s := NewTestServer(true, true)
@@ -197,4 +165,36 @@ func TestNoOpPerformance(t *testing.T) {
 
 	c.Close()
 	_ = s.Shutdown()
+}
+
+func NewTestClient(server *server.Instance) *client.Instance {
+	opts := client.NewOpts()
+	if server != nil {
+		opts.ListenPort = server.Opts().ListenPort
+		opts.ListenHost = server.Opts().ListenHost
+		opts.AuthToken = server.Opts().AuthToken
+	}
+	c := client.New(opts)
+	return c
+}
+
+var lastPort uint64 = 1234
+
+func NewTestServer(init bool, listen bool) *server.Instance {
+	port := atomic.AddUint64(&lastPort, 1)
+	opts := server.NewOpts()
+	opts.ListenPort = int(port)
+	opts.AuthToken = token
+	s := server.New(opts)
+	if init {
+		if err := s.Init(); err != nil {
+			panic(err)
+		}
+	}
+	if listen {
+		if err := s.StartListening(); err != nil {
+			panic(err)
+		}
+	}
+	return s
 }

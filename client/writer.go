@@ -16,7 +16,6 @@ func (series Series) Write(ts uint64, v float64) (res WriteResult) {
 			Id: series.id,
 		},
 	}
-	// @todo inject session ticket
 
 	// get
 	conn, err := series.client.GetConnection()
@@ -25,6 +24,9 @@ func (series Series) Write(ts uint64, v float64) (res WriteResult) {
 		return
 	}
 	defer panicOnErrorClose(conn.Close)
+
+	// session data
+	request.SessionTicket = conn.getSessionTicket()
 
 	// execute
 	var response *types.WriteResponse

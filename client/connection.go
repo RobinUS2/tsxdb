@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"log"
 	insecureRand "math/rand"
 	"net/rpc"
 	"strings"
@@ -67,6 +66,8 @@ type ManagedConnection struct {
 	pool          *sync.Pool
 	created       int64
 	authenticated bool
+	sessionId     int
+	sessionSecret []byte
 }
 
 func (conn *ManagedConnection) Close() error {
@@ -130,7 +131,6 @@ func (conn *ManagedConnection) executeAuthRequest(request types.AuthRequest) (re
 }
 
 func (conn *ManagedConnection) auth(client *Instance) error {
-
 	// first stage
 	var sessionId int
 	var sessionSecret []byte
@@ -159,7 +159,7 @@ func (conn *ManagedConnection) auth(client *Instance) error {
 		if err != nil {
 			return err
 		}
-		log.Printf("resp stage 1 %+v", resp)
+		//log.Printf("resp stage 1 %+v", resp)
 	}
 
 	// second stage
@@ -177,10 +177,22 @@ func (conn *ManagedConnection) auth(client *Instance) error {
 		if _, err := conn.executeAuthRequest(request); err != nil {
 			return err
 		}
+		// store for next requests
+		conn.sessionId = sessionId
+		conn.sessionSecret = sessionSecret
 	}
-	log.Println("auth complete")
+	//log.Println("auth complete")
 
 	return nil
+}
+
+func (conn *ManagedConnection) getSessionTicket() types.SessionTicket {
+	nonce := insecureRand.Int()
+	return types.SessionTicket{
+		Id:        conn.sessionId,
+		Nonce:     nonce,
+		Signature: tools.HmacInt(conn.sessionSecret, nonce),
+	}
 }
 
 func (client *Instance) Close() {
