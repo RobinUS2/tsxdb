@@ -7,6 +7,7 @@ import "errors"
 type RpcError string
 
 var RpcErrorNotImplemented RpcError = "not implemented"
+var RpcErrorAuthFailed RpcError = "not authenticated"
 var RpcErrorNumTimeValuePairsMisMatch RpcError = "mismatch between number of time&value pairs"
 var RpcErrorBackendStrategyNotFound RpcError = "no backend strategy found"
 

@@ -8,11 +8,14 @@ import (
 	"time"
 )
 
+const token = "verySecure123@#$"
+
 func NewTestClient(server *server.Instance) *client.Instance {
 	opts := client.NewOpts()
 	if server != nil {
 		opts.ListenPort = server.Opts().ListenPort
 		opts.ListenHost = server.Opts().ListenHost
+		opts.AuthToken = server.Opts().AuthToken
 	}
 	c := client.New(opts)
 	return c
@@ -24,6 +27,7 @@ func NewTestServer(init bool, listen bool) *server.Instance {
 	port := atomic.AddUint64(&lastPort, 1)
 	opts := server.NewOpts()
 	opts.ListenPort = int(port)
+	opts.AuthToken = token
 	s := server.New(opts)
 	if init {
 		if err := s.Init(); err != nil {

@@ -1,6 +1,7 @@
 package types
 
 type NoOpRequest struct {
+	SessionTicket
 }
 
 type NoOpResponse struct {

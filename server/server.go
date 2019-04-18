@@ -3,9 +3,12 @@ package server
 import (
 	"./backend"
 	"./rollup"
+	"errors"
 	"log"
 	"net"
 	"net/rpc"
+	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -19,6 +22,9 @@ type Instance struct {
 	shuttingDown    bool // set to true during shutdown
 
 	pendingRequests int64
+
+	sessionTokens    map[int][]byte // session id => secret
+	sessionTokensMux sync.RWMutex
 }
 
 func (instance *Instance) Opts() *Opts {
@@ -27,9 +33,10 @@ func (instance *Instance) Opts() *Opts {
 
 func New(opts *Opts) *Instance {
 	return &Instance{
-		opts:         opts,
-		rpc:          rpc.NewServer(),
-		rollupReader: rollup.NewReader(),
+		opts:          opts,
+		rpc:           rpc.NewServer(),
+		rollupReader:  rollup.NewReader(),
+		sessionTokens: make(map[int][]byte),
 	}
 }
 
@@ -48,6 +55,11 @@ func (instance *Instance) Init() error {
 	myStrategy := backend.NewSimpleStrategy(backend.NewMemoryBackend())
 	if err := instance.backendSelector.AddStrategy(myStrategy); err != nil {
 		return err
+	}
+
+	// must have auth
+	if len(strings.TrimSpace(instance.opts.AuthToken)) < 1 {
+		return errors.New("missing mandatory auth token option")
 	}
 
 	return nil

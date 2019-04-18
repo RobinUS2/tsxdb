@@ -9,7 +9,9 @@ import (
 )
 
 func TestNew(t *testing.T) {
+	const token = "verySecure123@#$"
 	opts := server.NewOpts()
+	opts.AuthToken = token
 	s := server.New(opts)
 	if s == nil {
 		t.Error()

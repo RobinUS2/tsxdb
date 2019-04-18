@@ -1,6 +1,7 @@
 package types
 
 type ReadRequest struct {
+	SessionTicket
 	From uint64
 	To   uint64
 	SeriesIdentifier

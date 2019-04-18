@@ -6,6 +6,7 @@ import (
 	"net"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 func (instance *Instance) StartListening() error {
@@ -56,7 +57,18 @@ func (instance *Instance) closeRpc() error {
 }
 
 func (instance *Instance) ServeConn(conn net.Conn) {
+	// @todo check blocked
 	atomic.AddInt64(&instance.pendingRequests, 1)
+	log.Printf("connection from %v", conn.RemoteAddr())
 	instance.rpc.ServeConn(conn)
 	atomic.AddInt64(&instance.pendingRequests, -1)
+
+	// auth timeout
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		log.Printf("check auth from %v", conn.RemoteAddr())
+		// @todo really check
+		// @todo check errors, block host from connection
+		_ = conn.Close()
+	}()
 }
