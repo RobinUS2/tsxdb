@@ -8,7 +8,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"log"
 	"net/rpc"
 	"testing"
 )
@@ -49,7 +48,7 @@ func TestNew(t *testing.T) {
 		}
 		sessionId = authReply.SessionId
 		sessionSecret, _ = base64.StdEncoding.DecodeString(authReply.SessionSecret)
-		log.Printf("%+v", authReply)
+		//log.Printf("%+v", authReply)
 	}
 	{
 		// 2
@@ -62,7 +61,7 @@ func TestNew(t *testing.T) {
 		if err != nil {
 			t.Error("error:", err)
 		}
-		log.Printf("%+v", authReply)
+		//log.Printf("%+v", authReply)
 	}
 
 	// write
