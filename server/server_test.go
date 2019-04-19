@@ -66,8 +66,10 @@ func TestNew(t *testing.T) {
 
 	// write
 	params := &types.WriteRequest{
-		Times:         []uint64{1, 2},
-		Values:        []float64{5.0, 6.0},
+		Series: []types.WriteSeriesRequest{{
+			Times:  []uint64{1, 2},
+			Values: []float64{5.0, 6.0},
+		}},
 		SessionTicket: authTwoRequest.SessionTicket,
 	}
 	var reply *types.WriteResponse

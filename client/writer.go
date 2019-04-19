@@ -10,10 +10,14 @@ var clientValidationErrMismatchSent = errors.New("mismatch between expected writ
 func (series Series) Write(ts uint64, v float64) (res WriteResult) {
 	// request (single)
 	request := types.WriteRequest{
-		Times:  []uint64{ts},
-		Values: []float64{v},
-		SeriesIdentifier: types.SeriesIdentifier{
-			Id: series.id,
+		Series: []types.WriteSeriesRequest{
+			{
+				Times:  []uint64{ts},
+				Values: []float64{v},
+				SeriesIdentifier: types.SeriesIdentifier{
+					Id: series.id,
+				},
+			},
 		},
 	}
 
@@ -41,7 +45,7 @@ func (series Series) Write(ts uint64, v float64) (res WriteResult) {
 
 	// validate num persisted
 	res.NumPersisted = response.Num
-	if res.NumPersisted != len(request.Values) {
+	if res.NumPersisted != 1 {
 		res.Error = clientValidationErrMismatchSent
 		return
 	}

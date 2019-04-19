@@ -25,30 +25,33 @@ func (endpoint *WriterEndpoint) Execute(args *types.WriteRequest, resp *types.Wr
 		return nil
 	}
 
-	numTimes := len(args.Times)
-	numValues := len(args.Values)
-	if numTimes != numValues {
-		resp.Error = &types.RpcErrorNumTimeValuePairsMisMatch
-		return nil
-	}
+	var numTimes int
+	for _, batchItem := range args.Series {
+		numTimes += len(batchItem.Times)
+		numValues := len(batchItem.Values)
+		if numTimes != numValues {
+			resp.Error = &types.RpcErrorNumTimeValuePairsMisMatch
+			return nil
+		}
 
-	// backend
-	c := backend.ContextBackend{}
-	c.Series = args.SeriesIdentifier.Id
-	// @todo namespace
-	backendInstance, err := endpoint.server.SelectBackend(c)
-	if err != nil {
-		resp.Error = &types.RpcErrorBackendStrategyNotFound
-		return nil
-	}
+		// backend
+		c := backend.ContextBackend{}
+		c.Series = batchItem.SeriesIdentifier.Id
+		// @todo namespace
+		backendInstance, err := endpoint.server.SelectBackend(c)
+		if err != nil {
+			resp.Error = &types.RpcErrorBackendStrategyNotFound
+			return nil
+		}
 
-	// write
-	writeContext := backend.ContextWrite{Context: c.Context}
-	err = backendInstance.Write(writeContext, args.Times, args.Values)
-	if err != nil {
-		e := types.RpcError(err.Error())
-		resp.Error = &e
-		return nil
+		// write
+		writeContext := backend.ContextWrite{Context: c.Context}
+		err = backendInstance.Write(writeContext, batchItem.Times, batchItem.Values)
+		if err != nil {
+			e := types.RpcError(err.Error())
+			resp.Error = &e
+			return nil
+		}
 	}
 	resp.Num = numTimes
 

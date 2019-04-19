@@ -2,9 +2,13 @@ package types
 
 type WriteRequest struct {
 	SessionTicket
+	Series []WriteSeriesRequest
+}
+
+type WriteSeriesRequest struct {
+	SeriesIdentifier
 	Times  []uint64
 	Values []float64
-	SeriesIdentifier
 }
 
 type WriteResponse struct {
