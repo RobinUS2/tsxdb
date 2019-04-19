@@ -19,7 +19,7 @@ type Instance struct {
 	backendSelector *backend.Selector
 	rollupReader    *rollup.Reader
 	rpcListener     net.Listener
-	shuttingDown    bool // set to true during shutdown
+	shuttingDown    int32 // set to true during shutdown
 
 	pendingRequests int64
 
@@ -74,7 +74,7 @@ func (instance *Instance) Start() error {
 
 func (instance *Instance) Shutdown() error {
 	log.Println("shutting down")
-	instance.shuttingDown = true
+	atomic.StoreInt32(&instance.shuttingDown, 1)
 
 	// poll RPC listener shutdown
 	if instance.rpcListener != nil {

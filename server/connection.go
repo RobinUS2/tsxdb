@@ -19,8 +19,9 @@ func (instance *Instance) StartListening() error {
 	go func() {
 		for {
 			conn, err := instance.rpcListener.Accept()
+			isShuttingDown := atomic.LoadInt32(&instance.shuttingDown) == 1
 			if err != nil {
-				if !instance.shuttingDown {
+				if !isShuttingDown {
 					log.Printf("%s", err)
 				}
 				break
@@ -28,7 +29,7 @@ func (instance *Instance) StartListening() error {
 
 			go instance.ServeConn(conn)
 
-			if instance.shuttingDown {
+			if isShuttingDown {
 				break
 			}
 		}
