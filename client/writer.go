@@ -7,7 +7,21 @@ import (
 
 var clientValidationErrMismatchSent = errors.New("mismatch between expected written values and received")
 
-func (series Series) Write(ts uint64, v float64) (res WriteResult) {
+func (series *Series) Write(ts uint64, v float64) (res WriteResult) {
+	// get
+	conn, err := series.client.GetConnection()
+	if err != nil {
+		res.Error = err
+		return
+	}
+	defer panicOnErrorClose(conn.Close)
+
+	// init series
+	if err := series.Init(conn); err != nil {
+		res.Error = err
+		return
+	}
+
 	// request (single)
 	request := types.WriteRequest{
 		Series: []types.WriteSeriesRequest{
@@ -20,18 +34,8 @@ func (series Series) Write(ts uint64, v float64) (res WriteResult) {
 				},
 			},
 		},
+		SessionTicket: conn.getSessionTicket(),
 	}
-
-	// get
-	conn, err := series.client.GetConnection()
-	if err != nil {
-		res.Error = err
-		return
-	}
-	defer panicOnErrorClose(conn.Close)
-
-	// session data
-	request.SessionTicket = conn.getSessionTicket()
 
 	// execute
 	var response *types.WriteResponse

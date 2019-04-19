@@ -5,7 +5,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func (series Series) NoOp() error {
+func (series *Series) NoOp() error {
 	// request (single)
 	request := types.NoOpRequest{}
 

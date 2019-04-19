@@ -69,6 +69,9 @@ func TestNew(t *testing.T) {
 		Series: []types.WriteSeriesRequest{{
 			Times:  []uint64{1, 2},
 			Values: []float64{5.0, 6.0},
+			SeriesIdentifier: types.SeriesIdentifier{
+				Id: 1,
+			},
 		}},
 		SessionTicket: authTwoRequest.SessionTicket,
 	}

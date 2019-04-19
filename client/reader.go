@@ -5,7 +5,21 @@ import (
 )
 
 // for now just a read single
-func (series Series) Read(q Query) (res QueryResult) {
+func (series *Series) Read(q Query) (res QueryResult) {
+
+	// get
+	conn, err := series.client.GetConnection()
+	if err != nil {
+		res.Error = err
+		return
+	}
+	defer panicOnErrorClose(conn.Close)
+
+	// init series
+	if err := series.Init(conn); err != nil {
+		res.Error = err
+		return
+	}
 	// request (single)
 	request := types.ReadRequest{
 		Queries: []types.ReadSeriesRequest{
@@ -18,18 +32,8 @@ func (series Series) Read(q Query) (res QueryResult) {
 				},
 			},
 		},
+		SessionTicket: conn.getSessionTicket(),
 	}
-
-	// get
-	conn, err := series.client.GetConnection()
-	if err != nil {
-		res.Error = err
-		return
-	}
-	defer panicOnErrorClose(conn.Close)
-
-	// session data
-	request.SessionTicket = conn.getSessionTicket()
 
 	// execute
 	var response *types.ReadResponse

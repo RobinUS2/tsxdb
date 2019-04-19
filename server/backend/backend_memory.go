@@ -10,10 +10,11 @@ const maxPaddingSize = 0.1
 
 type Namespace int
 type Series int
+type Timestamp float64
 
 type MemoryBackend struct {
 	// @todo partition by timestamp!!!
-	data    map[Namespace]map[Series]map[float64]float64
+	data    map[Namespace]map[Series]map[Timestamp]float64
 	dataMux sync.RWMutex
 }
 
@@ -43,7 +44,7 @@ func (instance *MemoryBackend) Write(context ContextWrite, timestamps []uint64, 
 		tsWithRand := float64(timestamp) + (rand.Float64() * maxPaddingSize)
 
 		// write
-		instance.data[namespace][seriesId][tsWithRand] = value
+		instance.data[namespace][seriesId][Timestamp(tsWithRand)] = value
 	}
 
 	// unlock
@@ -58,14 +59,14 @@ func (instance *MemoryBackend) __notLockedInitMaps(context Context, autoCreate b
 		if !autoCreate {
 			return false
 		}
-		instance.data[namespace] = make(map[Series]map[float64]float64)
+		instance.data[namespace] = make(map[Series]map[Timestamp]float64)
 	}
 	series := Series(context.Series)
 	if _, found := instance.data[namespace][series]; !found {
 		if !autoCreate {
 			return false
 		}
-		instance.data[namespace][series] = make(map[float64]float64)
+		instance.data[namespace][series] = make(map[Timestamp]float64)
 	}
 	return true
 }
@@ -87,7 +88,8 @@ func (instance *MemoryBackend) Read(context ContextRead) (res ReadResult) {
 	var pruned map[uint64]float64
 	fromFloat := float64(context.From)
 	toFloat := float64(context.To) + maxPaddingSize // add a bit here since that's the maximum value of the padding
-	for ts, value := range series {
+	for tsF, value := range series {
+		ts := float64(tsF)
 		if ts < fromFloat || ts > toFloat {
 			continue
 		}
@@ -106,6 +108,6 @@ func (instance *MemoryBackend) Read(context ContextRead) (res ReadResult) {
 
 func NewMemoryBackend() *MemoryBackend {
 	return &MemoryBackend{
-		data: make(map[Namespace]map[Series]map[float64]float64),
+		data: make(map[Namespace]map[Series]map[Timestamp]float64),
 	}
 }

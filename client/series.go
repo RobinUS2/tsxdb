@@ -1,10 +1,15 @@
 package client
 
+import "sync"
+
 type Series struct {
 	client    *Instance
 	tags      []string
 	namespace int
 	id        uint64
+	name      string
+
+	initMux sync.Mutex
 }
 
 func (series *Series) Namespace() int {
@@ -16,14 +21,15 @@ func (series Series) Tags() []string {
 }
 
 func (client *Instance) Series(name string, opts ...SeriesOpt) *Series {
-	s := NewSeries(client)
+	s := NewSeries(name, client)
 	s.applyOpts(opts)
 	return s
 }
 
-func NewSeries(client *Instance) *Series {
+func NewSeries(name string, client *Instance) *Series {
 	return &Series{
+		name:   name,
 		client: client,
-		id:     1234, // @todo
+		id:     0, // will be populated on first usage
 	}
 }

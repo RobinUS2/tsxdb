@@ -29,8 +29,18 @@ func (endpoint *WriterEndpoint) Execute(args *types.WriteRequest, resp *types.Wr
 	for _, batchItem := range args.Series {
 		numTimes += len(batchItem.Times)
 		numValues := len(batchItem.Values)
+
+		// basic validation
+		if numTimes < 1 {
+			resp.Error = &types.RpcErrorNoValues
+			return nil
+		}
 		if numTimes != numValues {
 			resp.Error = &types.RpcErrorNumTimeValuePairsMisMatch
+			return nil
+		}
+		if batchItem.Id < 1 {
+			resp.Error = &types.RpcErrorMissingSeriesId
 			return nil
 		}
 
