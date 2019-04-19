@@ -4,13 +4,18 @@ import (
 	"../rpc/types"
 )
 
+// for now just a read single
 func (series Series) Read(q Query) (res QueryResult) {
 	// request (single)
 	request := types.ReadRequest{
-		From: q.From,
-		To:   q.To,
-		SeriesIdentifier: types.SeriesIdentifier{
-			Id: series.id,
+		Queries: []types.ReadSeriesRequest{
+			{
+				From: q.From,
+				To:   q.To,
+				SeriesIdentifier: types.SeriesIdentifier{
+					Id: series.id,
+				},
+			},
 		},
 	}
 
@@ -35,7 +40,7 @@ func (series Series) Read(q Query) (res QueryResult) {
 		res.Error = response.Error.Error()
 		return
 	}
-	res.Results = response.Results
+	res.Results = response.Results[series.id]
 
 	return
 }

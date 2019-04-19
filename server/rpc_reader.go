@@ -26,24 +26,32 @@ func (endpoint *ReaderEndpoint) Execute(args *types.ReadRequest, resp *types.Rea
 	}
 
 	// backend
-	c := backend.ContextBackend{}
-	c.Series = args.SeriesIdentifier.Id
-	// @todo namespace
-	backendInstance, err := endpoint.server.SelectBackend(c)
-	if err != nil {
-		resp.Error = &types.RpcErrorBackendStrategyNotFound
-		return nil
-	}
+	finalResults := make(map[uint64]map[uint64]float64)
+	for _, query := range args.Queries {
+		c := backend.ContextBackend{}
+		c.Series = query.SeriesIdentifier.Id
+		// @todo namespace
+		backendInstance, err := endpoint.server.SelectBackend(c)
+		if err != nil {
+			resp.Error = &types.RpcErrorBackendStrategyNotFound
+			return nil
+		}
 
-	// read
-	readResult := backendInstance.Read(backend.ContextRead{Context: c.Context, From: args.From, To: args.To})
-	if readResult.Error != nil {
-		resp.Error = types.WrapErrorPointer(readResult.Error)
-		return nil
+		// read
+		readResult := backendInstance.Read(backend.ContextRead{Context: c.Context, From: query.From, To: query.To})
+		if readResult.Error != nil {
+			resp.Error = types.WrapErrorPointer(readResult.Error)
+			return nil
+		}
+		// aggregation layer
+		rollupResults := endpoint.server.rollupReader.Process(readResult)
+		if rollupResults.Error != nil {
+			resp.Error = types.WrapErrorPointer(rollupResults.Error)
+			return nil
+		}
+		finalResults[query.Id] = rollupResults.Results
 	}
-	// aggregation layer
-	rollupResults := endpoint.server.rollupReader.Process(readResult)
-	resp.Results = rollupResults.Results
+	resp.Results = finalResults
 
 	return nil
 }
