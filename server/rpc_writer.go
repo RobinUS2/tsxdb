@@ -36,8 +36,8 @@ func (endpoint *WriterEndpoint) Execute(args *types.WriteRequest, resp *types.Wr
 
 		// backend
 		c := backend.ContextBackend{}
-		c.Series = batchItem.SeriesIdentifier.Id
-		// @todo namespace
+		c.Series = batchItem.Id
+		c.Namespace = batchItem.Namespace
 		backendInstance, err := endpoint.server.SelectBackend(c)
 		if err != nil {
 			resp.Error = &types.RpcErrorBackendStrategyNotFound

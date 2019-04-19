@@ -66,6 +66,62 @@ func TestNew(t *testing.T) {
 	_ = s.Shutdown()
 }
 
+func TestNewNamespace(t *testing.T) {
+	// start server
+	s := NewTestServer(true, true)
+	c := NewTestClient(s)
+	if c == nil {
+		t.Error()
+		return
+	}
+
+	// new series
+	series := c.Series("mySeries", client.NewSeriesNamespace(1))
+
+	// timestamp
+	now := c.Now()
+	const oneMinute = 60 * 1000
+	const writeValue = 12.3
+
+	// write
+	{
+		result := series.Write(now, writeValue)
+		if result.Error != nil {
+			t.Error(result.Error)
+		}
+	}
+
+	// read
+	{
+		result := series.QueryBuilder().From(now - oneMinute).To(now + oneMinute).Execute()
+		if result.Error != nil {
+			t.Error(result.Error)
+		}
+		if result.Results == nil {
+			t.Error()
+		}
+		if len(result.Results) != 1 {
+			t.Error(result.Results)
+			return
+		}
+		var ts uint64
+		var value float64
+		for ts, value = range result.Results {
+			// no need to do something
+		}
+		if ts != now {
+			t.Error(ts, now)
+		}
+		if value != writeValue {
+			t.Error(value)
+		}
+		//t.Log(ts, value)
+	}
+
+	c.Close()
+	_ = s.Shutdown()
+}
+
 func TestWritePerformance(t *testing.T) {
 	// start server
 	s := NewTestServer(true, true)

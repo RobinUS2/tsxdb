@@ -29,8 +29,8 @@ func (endpoint *ReaderEndpoint) Execute(args *types.ReadRequest, resp *types.Rea
 	finalResults := make(map[uint64]map[uint64]float64)
 	for _, query := range args.Queries {
 		c := backend.ContextBackend{}
-		c.Series = query.SeriesIdentifier.Id
-		// @todo namespace
+		c.Series = query.Id
+		c.Namespace = query.Namespace
 		backendInstance, err := endpoint.server.SelectBackend(c)
 		if err != nil {
 			resp.Error = &types.RpcErrorBackendStrategyNotFound

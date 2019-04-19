@@ -13,7 +13,8 @@ func (series Series) Read(q Query) (res QueryResult) {
 				From: q.From,
 				To:   q.To,
 				SeriesIdentifier: types.SeriesIdentifier{
-					Id: series.id,
+					Id:        series.id,
+					Namespace: series.namespace,
 				},
 			},
 		},
