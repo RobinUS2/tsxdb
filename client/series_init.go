@@ -2,6 +2,7 @@ package client
 
 import (
 	"../rpc/types"
+	"../tools"
 	"github.com/pkg/errors"
 	"sync/atomic"
 )
@@ -32,9 +33,12 @@ func (series *Series) Init(conn *ManagedConnection) (err error) {
 
 	// request
 	request := types.SeriesMetadataRequest{
-		Namespace:     series.namespace,
-		Tags:          series.tags,
-		Name:          series.name,
+		SeriesMetadata: types.SeriesMetadata{
+			Namespace:              series.namespace,
+			Tags:                   series.tags,
+			Name:                   series.name,
+			SeriesCreateIdentifier: types.SeriesCreateIdentifier(tools.RandomInsecureIdentifier()),
+		},
 		SessionTicket: conn.getSessionTicket(),
 	}
 

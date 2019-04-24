@@ -3,8 +3,8 @@ package backend
 type Metadata struct {
 }
 
-func (meta *Metadata) CreateOrUpdateSeries() {
-
+func (meta *Metadata) CreateOrUpdateSeries(*CreateSeries) *CreateSeriesResult {
+	return nil
 }
 
 func (meta *Metadata) SearchSeries() {
