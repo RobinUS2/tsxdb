@@ -25,6 +25,8 @@ type Instance struct {
 
 	sessionTokens    map[int][]byte // session id => secret
 	sessionTokensMux sync.RWMutex
+
+	metaStore backend.IMetadata
 }
 
 func (instance *Instance) Opts() *Opts {
@@ -61,6 +63,9 @@ func (instance *Instance) Init() error {
 	if len(strings.TrimSpace(instance.opts.AuthToken)) < 1 {
 		return errors.New("missing mandatory auth token option")
 	}
+
+	// metadata
+	instance.metaStore = backend.NewMetadata()
 
 	return nil
 }
