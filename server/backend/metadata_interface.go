@@ -13,6 +13,7 @@ type IMetadata interface {
 
 type CreateSeries struct {
 	Series map[types.SeriesCreateIdentifier]types.SeriesMetadata
+	Error  error
 }
 
 type CreateSeriesResult struct {
@@ -25,6 +26,7 @@ type SearchSeries struct {
 
 type SearchSeriesResult struct {
 	Series []types.SeriesIdentifier
+	Error  error
 }
 
 type DeleteSeries struct {
@@ -36,6 +38,7 @@ type DeleteSeriesResult struct {
 }
 
 type SearchSeriesElement struct {
+	Namespace  int
 	Name       string
 	Tag        string
 	Comparator SearchSeriesComparator
@@ -45,5 +48,5 @@ type SearchSeriesElement struct {
 
 type SearchSeriesComparator string
 
-var SearchSeriesComparatorAnd SearchSeriesComparator = "AND"
+var SearchSeriesComparatorEquals SearchSeriesComparator = "EQUALS"
 var SearchSeriesComparatorNot SearchSeriesComparator = "NOT"

@@ -197,14 +197,72 @@ func (instance *MemoryBackend) CreateOrUpdateSeries(create *CreateSeries) (resul
 	return
 }
 
-func (instance *MemoryBackend) SearchSeries(search *SearchSeries) *SearchSeriesResult {
-	// @todo implement
-	return nil
+func (instance *MemoryBackend) SearchSeries(search *SearchSeries) (result *SearchSeriesResult) {
+	result = &SearchSeriesResult{
+		Series: nil, // lazy init
+	}
+	if search.And != nil {
+		result.Error = errors.New("no AND support yet")
+		return
+	}
+	if search.Or != nil {
+		result.Error = errors.New("no OR support yet")
+		return
+	}
+	if search.Comparator != SearchSeriesComparatorEquals {
+		result.Error = errors.New("only EQUALS support")
+		return
+	}
+	if search.Tag != "" {
+		result.Error = errors.New("not tag support yet")
+		return
+	}
+
+	// search
+	instance.seriesMux.RLock()
+	for _, serie := range instance.series {
+		if serie.Namespace != Namespace(search.Namespace) {
+			continue
+		}
+		if serie.Name == search.Name {
+			// @todo support tags, etc
+			// match
+
+			// init result set
+			if result.Series == nil {
+				result.Series = make([]types.SeriesIdentifier, 0)
+			}
+			result.Series = append(result.Series, types.SeriesIdentifier{
+				Namespace: int(serie.Namespace),
+				Id:        uint64(serie.Id),
+			})
+		}
+	}
+	instance.seriesMux.RUnlock()
+
+	return
 }
 
-func (instance *MemoryBackend) DeleteSeries(delete *DeleteSeries) *DeleteSeriesResult {
-	// @todo implement
-	return nil
+func (instance *MemoryBackend) DeleteSeries(ops *DeleteSeries) (result *DeleteSeriesResult) {
+	result = &DeleteSeriesResult{}
+	instance.seriesMux.Lock()
+	defer instance.seriesMux.Unlock()
+	for _, deleteOperation := range ops.Series {
+		// check correct namespace
+		key := Series(deleteOperation.Id)
+		if val, found := instance.series[key]; found {
+			if val.Namespace != Namespace(deleteOperation.Namespace) {
+				result.Error = errors.New("invalid namespace")
+				return
+			}
+		} else {
+			// not found
+			result.Error = errors.New("not found")
+			return
+		}
+		delete(instance.series, key)
+	}
+	return
 }
 
 func NewMemoryBackend() *MemoryBackend {
