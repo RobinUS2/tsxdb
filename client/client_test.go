@@ -3,6 +3,7 @@ package client_test
 import (
 	"../client"
 	"../server"
+	"fmt"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -146,7 +147,8 @@ func TestWritePerformance(t *testing.T) {
 	}
 	tookMs := float64(time.Since(startTime).Nanoseconds()) / 1000000.0
 	tookMsEach := tookMs / float64(i)
-	t.Logf("write avg time %f.2ms (%d iterations)", tookMsEach, i)
+	perSecond := 1000.0 / tookMsEach
+	t.Logf("write avg time %f.2ms (%d iterations - %.0f/second)", tookMsEach, i, perSecond)
 
 	c.Close()
 	_ = s.Shutdown()
@@ -187,7 +189,8 @@ func TestReadPerformance(t *testing.T) {
 	}
 	tookMs := float64(time.Since(startTime).Nanoseconds()) / 1000000.0
 	tookMsEach := tookMs / float64(i)
-	t.Logf("read avg time %f.2ms (%d iterations)", tookMsEach, i)
+	perSecond := 1000.0 / tookMsEach
+	t.Logf("read avg time %f.2ms (%d iterations - %.0f/second)", tookMsEach, i, perSecond)
 
 	c.Close()
 	_ = s.Shutdown()
@@ -218,6 +221,38 @@ func TestNoOpPerformance(t *testing.T) {
 	tookMs := float64(time.Since(startTime).Nanoseconds()) / 1000000.0
 	tookMsEach := tookMs / float64(i)
 	t.Logf("noop avg time %f.2ms (%d iterations)", tookMsEach, i)
+
+	c.Close()
+	_ = s.Shutdown()
+}
+
+func TestInitSeriesPerformance(t *testing.T) {
+	// start server
+	s := NewTestServer(true, true)
+	c := NewTestClient(s)
+	now := c.Now()
+	startTime := time.Now()
+	const minTime = 1 * time.Second
+	const minIters = 100
+	const writeValue = 10.1
+	var i int
+	for i = 0; i < 1000*1000; i++ {
+		seriesId := i - (i % 10)
+		series := c.Series(fmt.Sprintf("benchmarkSeriesInitPerformance-%d", seriesId))
+		result := series.Write(now+uint64(i), writeValue)
+		if result.Error != nil {
+			t.Error(result.Error)
+		}
+		if i > minIters && i%100 == 0 {
+			if time.Since(startTime).Seconds() > minTime.Seconds() {
+				break
+			}
+		}
+	}
+	tookMs := float64(time.Since(startTime).Nanoseconds()) / 1000000.0
+	tookMsEach := tookMs / float64(i)
+	perSecond := 1000.0 / tookMsEach
+	t.Logf("init series (+1 write) avg time %f.2ms (%d iterations - %.0f/second)", tookMsEach, i, perSecond)
 
 	c.Close()
 	_ = s.Shutdown()

@@ -16,6 +16,7 @@ type SeriesMetadataResponse struct {
 	Id uint64
 	SeriesCreateIdentifier
 	Error *RpcError
+	New   bool
 }
 
 type SeriesCreateIdentifier uint64 // xxhash64 of uuid bytes

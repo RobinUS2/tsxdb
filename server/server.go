@@ -54,7 +54,8 @@ func (instance *Instance) Init() error {
 	// testing backend strategy in memory
 	// @todo from config
 	instance.backendSelector = backend.NewSelector()
-	myStrategy := backend.NewSimpleStrategy(backend.NewMemoryBackend())
+	myBackend := backend.NewMemoryBackend()
+	myStrategy := backend.NewSimpleStrategy(myBackend)
 	if err := instance.backendSelector.AddStrategy(myStrategy); err != nil {
 		return err
 	}
@@ -65,7 +66,7 @@ func (instance *Instance) Init() error {
 	}
 
 	// metadata
-	instance.metaStore = backend.NewMetadata()
+	instance.metaStore = backend.NewMetadata(myBackend)
 
 	return nil
 }

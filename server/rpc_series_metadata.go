@@ -2,7 +2,7 @@ package server
 
 import (
 	"../rpc/types"
-	"math/rand"
+	"./backend"
 )
 
 func init() {
@@ -26,8 +26,17 @@ func (endpoint *SeriesMetadataEndpoint) Execute(args *types.SeriesMetadataReques
 	}
 
 	// metadata
-	// @todo real implementation
-	resp.Id = rand.Uint64()
+	result := endpoint.server.metaStore.CreateOrUpdateSeries(&backend.CreateSeries{
+		Series: map[types.SeriesCreateIdentifier]types.SeriesMetadata{
+			args.SeriesCreateIdentifier: args.SeriesMetadata,
+		},
+	})
+	thisResult := result.Results[args.SeriesCreateIdentifier] // only support one for now
+	// for some reason assigning thisResult to resp is not working, probably since the reference is part of the RPC pipe
+	resp.New = thisResult.New
+	resp.Id = thisResult.Id
+	resp.Error = thisResult.Error
+	resp.SeriesCreateIdentifier = thisResult.SeriesCreateIdentifier
 
 	return nil
 }

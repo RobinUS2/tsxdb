@@ -1,21 +1,37 @@
 package backend
 
 import (
+	"../../rpc/types"
 	"errors"
 	"math/rand"
 	"sync"
+	"sync/atomic"
 )
 
 const maxPaddingSize = 0.1
 
+// @todo partition by timestamp!!!
+
 type Namespace int
-type Series int
+type Series uint64
 type Timestamp float64
 
+type SeriesMetadata struct {
+	Id        Series
+	Namespace Namespace
+	Name      string
+	Tags      []string
+}
+
 type MemoryBackend struct {
-	// @todo partition by timestamp!!!
+	// data
 	data    map[Namespace]map[Series]map[Timestamp]float64
 	dataMux sync.RWMutex
+
+	// metadata
+	seriesIdCounter uint64
+	series          map[Series]*SeriesMetadata
+	seriesMux       sync.RWMutex
 }
 
 func (instance *MemoryBackend) Type() TypeBackend {
@@ -106,8 +122,94 @@ func (instance *MemoryBackend) Read(context ContextRead) (res ReadResult) {
 	return
 }
 
+func (instance *MemoryBackend) __notLockedGetSeriesByNameSpaceAndName(namespace Namespace, name string) *SeriesMetadata {
+	for _, serie := range instance.series {
+		if serie.Namespace != namespace {
+			continue
+		}
+		if serie.Name == name {
+			return serie
+		}
+	}
+	return nil
+}
+
+func (instance *MemoryBackend) CreateOrUpdateSeries(create *CreateSeries) (result *CreateSeriesResult) {
+	result = &CreateSeriesResult{
+		Results: make(map[types.SeriesCreateIdentifier]types.SeriesMetadataResponse),
+	}
+
+	var newSeries []types.SeriesMetadata
+	instance.seriesMux.RLock()
+	for _, serie := range create.Series {
+		existing := instance.__notLockedGetSeriesByNameSpaceAndName(Namespace(serie.Namespace), serie.Name)
+		if existing != nil {
+			// @todo support changes (e.g. adding tags)
+			// return existing metadata
+			result.Results[serie.SeriesCreateIdentifier] = types.SeriesMetadataResponse{
+				Id:                     uint64(existing.Id),
+				Error:                  nil,
+				SeriesCreateIdentifier: serie.SeriesCreateIdentifier,
+				New:                    false,
+			}
+			continue
+		}
+		if newSeries == nil {
+			newSeries = make([]types.SeriesMetadata, 0)
+		}
+		newSeries = append(newSeries, serie)
+	}
+	instance.seriesMux.RUnlock()
+
+	// add
+	if newSeries != nil {
+		// write lock
+		instance.seriesMux.Lock()
+		for _, serie := range newSeries {
+			// check existing again, now with write barrier globally
+			existing := instance.__notLockedGetSeriesByNameSpaceAndName(Namespace(serie.Namespace), serie.Name)
+			if existing != nil {
+				continue
+			}
+
+			// increment id
+			id := atomic.AddUint64(&instance.seriesIdCounter, 1)
+
+			// add to memory
+			instance.series[Series(id)] = &SeriesMetadata{
+				Namespace: Namespace(serie.Namespace),
+				Name:      serie.Name,
+				Id:        Series(id),
+				Tags:      serie.Tags,
+			}
+
+			// result
+			result.Results[serie.SeriesCreateIdentifier] = types.SeriesMetadataResponse{
+				Id:                     id,
+				Error:                  nil,
+				SeriesCreateIdentifier: serie.SeriesCreateIdentifier,
+				New:                    true,
+			}
+		}
+		instance.seriesMux.Unlock()
+	}
+
+	return
+}
+
+func (instance *MemoryBackend) SearchSeries(search *SearchSeries) *SearchSeriesResult {
+	// @todo implement
+	return nil
+}
+
+func (instance *MemoryBackend) DeleteSeries(delete *DeleteSeries) *DeleteSeriesResult {
+	// @todo implement
+	return nil
+}
+
 func NewMemoryBackend() *MemoryBackend {
 	return &MemoryBackend{
-		data: make(map[Namespace]map[Series]map[Timestamp]float64),
+		data:   make(map[Namespace]map[Series]map[Timestamp]float64),
+		series: make(map[Series]*SeriesMetadata),
 	}
 }

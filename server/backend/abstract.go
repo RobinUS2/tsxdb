@@ -6,4 +6,10 @@ type AbstractBackend interface {
 	Read(context ContextRead) ReadResult
 }
 
+// backend that supports both metadata and storage
+type AbstractBackendWithMetadata interface {
+	AbstractBackend
+	IMetadata
+}
+
 type TypeBackend string
