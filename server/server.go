@@ -55,6 +55,9 @@ func (instance *Instance) Init() error {
 	// @todo from config
 	instance.backendSelector = backend.NewSelector()
 	myBackend := backend.NewMemoryBackend()
+	if err := myBackend.Init(); err != nil {
+		return err
+	}
 	myStrategy := backend.NewSimpleStrategy(myBackend)
 	if err := instance.backendSelector.AddStrategy(myStrategy); err != nil {
 		return err

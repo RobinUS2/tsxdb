@@ -265,6 +265,10 @@ func (instance *MemoryBackend) DeleteSeries(ops *DeleteSeries) (result *DeleteSe
 	return
 }
 
+func (instance *MemoryBackend) Init() error {
+	return nil
+}
+
 func NewMemoryBackend() *MemoryBackend {
 	return &MemoryBackend{
 		data:   make(map[Namespace]map[Series]map[Timestamp]float64),
