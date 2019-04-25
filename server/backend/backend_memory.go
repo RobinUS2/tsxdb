@@ -9,6 +9,7 @@ import (
 )
 
 const maxPaddingSize = 0.1
+const memoryType = TypeBackend("memory")
 
 // @todo partition by timestamp!!!
 
@@ -35,7 +36,7 @@ type MemoryBackend struct {
 }
 
 func (instance *MemoryBackend) Type() TypeBackend {
-	return TypeBackend("memory")
+	return memoryType
 }
 
 func (instance *MemoryBackend) Write(context ContextWrite, timestamps []uint64, values []float64) error {

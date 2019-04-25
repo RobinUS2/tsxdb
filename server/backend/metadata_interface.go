@@ -48,5 +48,5 @@ type SearchSeriesElement struct {
 
 type SearchSeriesComparator string
 
-var SearchSeriesComparatorEquals SearchSeriesComparator = "EQUALS"
-var SearchSeriesComparatorNot SearchSeriesComparator = "NOT"
+const SearchSeriesComparatorEquals SearchSeriesComparator = "EQUALS"
+const SearchSeriesComparatorNot SearchSeriesComparator = "NOT"
