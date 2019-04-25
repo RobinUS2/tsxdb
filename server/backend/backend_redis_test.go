@@ -43,4 +43,14 @@ func TestNewRedisBackendMultiConnection(t *testing.T) {
 	if err := b.Init(); err != nil {
 		t.Error(err)
 	}
+
+	// simple write
+	if err := b.Write(backend.ContextWrite{
+		Context: backend.Context{
+			Namespace: 5,
+			Series:    1,
+		},
+	}, []uint64{1234}, []float64{1.2}); err != nil {
+		t.Error(err)
+	}
 }
