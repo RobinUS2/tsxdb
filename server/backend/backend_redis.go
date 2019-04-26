@@ -7,6 +7,7 @@ import (
 	"github.com/bsm/redis-lock"
 	"github.com/go-redis/redis"
 	"github.com/pkg/errors"
+	"log"
 	"math"
 	"math/rand"
 	"strconv"
@@ -127,6 +128,10 @@ func (instance *RedisBackend) getSeriesByNameKey(namespace Namespace, name strin
 	return fmt.Sprintf("series_%d_%s", namespace, name) // always prefix with namespace
 }
 
+func (instance *RedisBackend) getSeriesMetaKey(namespace Namespace, id uint64) string {
+	return fmt.Sprintf("series_%d_%d_meta", namespace, id) // always prefix with namespace
+}
+
 func (instance *RedisBackend) createOrUpdateSeries(identifier types.SeriesCreateIdentifier, series types.SeriesCreateMetadata) (result types.SeriesMetadataResponse, err error) {
 	// get right client
 	conn := instance.getConnection(Namespace(series.Namespace))
@@ -192,7 +197,7 @@ func (instance *RedisBackend) createOrUpdateSeries(identifier types.SeriesCreate
 
 	// metadata persist (just overwrite for now)
 	{
-		metaKey := fmt.Sprintf("series_%d_%s_meta", series.Namespace, series.Name) // always prefix with namespace
+		metaKey := instance.getSeriesMetaKey(Namespace(series.Namespace), result.Id)
 		j, err := json.Marshal(series.SeriesMetadata)
 		if err != nil {
 			panic(err)
@@ -298,8 +303,45 @@ func (instance *RedisBackend) SearchSeries(search *SearchSeries) (result *Search
 	return nil
 }
 
+func (instance *RedisBackend) getMetadata(namespace Namespace, id uint64) (result SeriesMetadata, err error) {
+	conn := instance.getConnection(namespace)
+	metaKey := instance.getSeriesMetaKey(namespace, id)
+
+	res := conn.Get(metaKey)
+	if res.Err() != nil {
+		return result, res.Err()
+	}
+
+	var data types.SeriesMetadata
+	if err := json.Unmarshal([]byte(res.Val()), &data); err != nil {
+		return result, err
+	}
+
+	log.Printf("get meta %+v", data)
+
+	return
+}
+
 func (instance *RedisBackend) DeleteSeries(ops *DeleteSeries) (result *DeleteSeriesResult) {
-	return nil
+	result = &DeleteSeriesResult{}
+	for _, op := range ops.Series {
+		//conn := instance.getConnection(Namespace(op.Namespace))
+
+		// meta
+		meta, err := instance.getMetadata(Namespace(op.Namespace), op.Id)
+		if err != nil {
+			result.Error = err
+			return
+		}
+		log.Printf("delete meta %+v", meta)
+
+		//conn.Del(instance.getSeriesByNameKey(Namespace(op.Namespace), op.Id)
+
+		// @todo tag memberships (based on meta)
+		// @todo meta key
+		// @todo data keys
+	}
+	return
 }
 
 func (instance *RedisBackend) getConnection(namespace Namespace) *redis.Client {

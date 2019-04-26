@@ -226,6 +226,24 @@ func TestNewRedisBackendMultiConnection(t *testing.T) {
 			t.Error("should be nil")
 		}
 	}
+
+	// delete
+	{
+		res := b.DeleteSeries(&backend.DeleteSeries{
+			Series: []types.SeriesIdentifier{
+				{
+					Namespace: 1,
+					Id:        idFirst,
+				},
+			},
+		})
+		if res == nil {
+			t.Error(res)
+		}
+		if res.Error != nil {
+			t.Error(res.Error)
+		}
+	}
 }
 func CompareFloat(a float64, b float64, tolerance float64, err func()) {
 	if math.Abs(a-b) > tolerance {
