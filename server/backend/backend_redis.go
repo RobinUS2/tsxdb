@@ -1,7 +1,9 @@
 package backend
 
 import (
+	"../../rpc/types"
 	"fmt"
+	"github.com/bsm/redis-lock"
 	"github.com/go-redis/redis"
 	"github.com/pkg/errors"
 	"math"
@@ -120,8 +122,93 @@ func (instance *RedisBackend) Read(context ContextRead) (res ReadResult) {
 	return
 }
 
+func (instance *RedisBackend) createOrUpdateSeries(identifier types.SeriesCreateIdentifier, series types.SeriesMetadata) (result types.SeriesMetadataResponse, err error) {
+	// get right client
+	conn := instance.getConnection(Namespace(series.Namespace))
+
+	// existing
+	seriesKey := fmt.Sprintf("series_%d_%s", series.Namespace, series.Name) // always prefix with namespace
+	res := conn.Get(seriesKey)
+	if filterNilErr(res.Err()) != nil {
+		err = res.Err()
+		return
+	}
+	if res.Val() == "" {
+		// not existing
+		lockKey := "lock_" + seriesKey
+		createLock, err := lock.Obtain(conn, lockKey, nil)
+		if err != nil || createLock == nil {
+			// fail to obtain lock
+			return result, errors.New(fmt.Sprintf("failed to obtain metadata lock %v", err))
+		}
+		// locked
+
+		// unlock
+		defer func() {
+			// unlock
+			if lockErr := createLock.Unlock(); err != nil {
+				err = lockErr
+				return
+			}
+		}()
+
+		// existing (check again in lock)
+		res := conn.Get(seriesKey)
+		if res.Err() == redis.Nil {
+			// not existing, create
+
+			// ID, increment in namespace
+			idKey := fmt.Sprintf("id_%d", series.Namespace)
+			idRes := conn.Incr(idKey)
+			if filterNilErr(idRes.Err()) != nil {
+				return result, errors.Wrap(idRes.Err(), "increment failed")
+			}
+			newId := uint64(idRes.Val())
+
+			// write to redis
+			writeRes := conn.Set(seriesKey, fmt.Sprintf("%d", newId), 0)
+			if writeRes.Err() != nil {
+				return result, writeRes.Err()
+			}
+
+			// result vars
+			result.New = true
+			result.Id = newId
+		}
+
+	} else {
+		// existing
+		id, err := strconv.ParseUint(res.Val(), 10, 64)
+		if err != nil {
+			return result, err
+		}
+		result.New = false
+		result.Id = id
+	}
+	return
+}
+
 func (instance *RedisBackend) CreateOrUpdateSeries(create *CreateSeries) (result *CreateSeriesResult) {
-	return nil
+	result = &CreateSeriesResult{}
+	for identifier, series := range create.Series {
+		subRes, err := instance.createOrUpdateSeries(identifier, series)
+		if err != nil {
+			result.Error = err
+			return
+		}
+		if result.Results == nil {
+			result.Results = make(map[types.SeriesCreateIdentifier]types.SeriesMetadataResponse)
+		}
+		result.Results[identifier] = subRes
+	}
+	return
+}
+
+func filterNilErr(err error) error {
+	if err == redis.Nil {
+		return nil
+	}
+	return err
 }
 
 func (instance *RedisBackend) SearchSeries(search *SearchSeries) (result *SearchSeriesResult) {
@@ -133,7 +220,12 @@ func (instance *RedisBackend) DeleteSeries(ops *DeleteSeries) (result *DeleteSer
 }
 
 func (instance *RedisBackend) getConnection(namespace Namespace) *redis.Client {
-	return instance.connections[namespace]
+	val := instance.connections[namespace]
+	if val != nil {
+		return val
+	}
+	// fallback to default connection
+	return instance.connections[RedisDefaultConnectionNamespace]
 }
 
 func (instance *RedisBackend) Init() error {

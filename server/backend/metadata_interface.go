@@ -13,11 +13,11 @@ type IMetadata interface {
 
 type CreateSeries struct {
 	Series map[types.SeriesCreateIdentifier]types.SeriesMetadata
-	Error  error
 }
 
 type CreateSeriesResult struct {
 	Results map[types.SeriesCreateIdentifier]types.SeriesMetadataResponse
+	Error   error
 }
 
 type SearchSeries struct {

@@ -1,7 +1,9 @@
 package backend_test
 
 import (
+	"../../rpc/types"
 	"../backend"
+	"fmt"
 	"math"
 	"math/rand"
 	"testing"
@@ -47,6 +49,65 @@ func TestNewRedisBackendMultiConnection(t *testing.T) {
 	}
 	if err := b.Init(); err != nil {
 		t.Error(err)
+	}
+
+	// create
+	var idFirst uint64
+	name := fmt.Sprintf("series-redis-%d", time.Now().UnixNano())
+	{
+		createIdentifier := types.SeriesCreateIdentifier(1234)
+		res := b.CreateOrUpdateSeries(&backend.CreateSeries{
+			Series: map[types.SeriesCreateIdentifier]types.SeriesMetadata{
+				createIdentifier: {
+					Namespace:              1,
+					Name:                   name,
+					Tags:                   []string{"a", "b"},
+					SeriesCreateIdentifier: createIdentifier,
+				},
+			},
+		})
+		if res == nil {
+			t.Error()
+		}
+		if res.Error != nil {
+			t.Error(res.Error)
+		}
+		result := res.Results[createIdentifier]
+		if result.Id < 1 {
+			t.Error("missing id")
+		}
+		idFirst = result.Id
+		if !result.New {
+			t.Error("should be new")
+		}
+	}
+
+	// create again
+	{
+		createIdentifier := types.SeriesCreateIdentifier(2345)
+		res := b.CreateOrUpdateSeries(&backend.CreateSeries{
+			Series: map[types.SeriesCreateIdentifier]types.SeriesMetadata{
+				createIdentifier: {
+					Namespace:              1,
+					Name:                   name,
+					Tags:                   []string{"a", "b"},
+					SeriesCreateIdentifier: createIdentifier,
+				},
+			},
+		})
+		if res == nil {
+			t.Error()
+		}
+		if res.Error != nil {
+			t.Error(res.Error)
+		}
+		result := res.Results[createIdentifier]
+		if result.Id != idFirst {
+			t.Error(result.Id, idFirst)
+		}
+		if result.New {
+			t.Error("should not be new")
+		}
 	}
 
 	// simple write
