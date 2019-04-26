@@ -2,6 +2,7 @@ package backend_test
 
 import (
 	"../backend"
+	"math/rand"
 	"testing"
 	"time"
 )
@@ -46,14 +47,16 @@ func TestNewRedisBackendMultiConnection(t *testing.T) {
 	}
 
 	// simple write
+	const seriesId = 1
 	now := uint64(time.Now().Unix() * 1000)
+	writeVal := rand.Float64()
 	{
 		if err := b.Write(backend.ContextWrite{
 			Context: backend.Context{
 				Namespace: 5,
-				Series:    1,
+				Series:    seriesId,
 			},
-		}, []uint64{now}, []float64{1.2}); err != nil {
+		}, []uint64{now}, []float64{writeVal}); err != nil {
 			t.Error(err)
 		}
 	}
@@ -62,7 +65,7 @@ func TestNewRedisBackendMultiConnection(t *testing.T) {
 	{
 		res := b.Read(backend.ContextRead{
 			Context: backend.Context{
-				Series:    1,
+				Series:    seriesId,
 				Namespace: 5,
 			},
 			From: now - (86400 * 1000 * 2),
@@ -70,6 +73,19 @@ func TestNewRedisBackendMultiConnection(t *testing.T) {
 		})
 		if res.Error != nil {
 			t.Error(res.Error)
+		}
+		var ts uint64
+		var val float64
+		for ts, val = range res.Results {
+			if ts == now {
+				break
+			}
+		}
+		if now != ts {
+			t.Error("timestamp mismatch", now, ts)
+		}
+		if writeVal != val {
+			t.Error("value mismatch", writeVal, val)
 		}
 	}
 }

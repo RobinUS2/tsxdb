@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"github.com/go-redis/redis"
 	"github.com/pkg/errors"
-	"log"
 	"math"
 	"math/rand"
+	"strconv"
 )
 
 const redisType = TypeBackend("redis")
@@ -52,8 +52,8 @@ func (instance *RedisBackend) Write(context ContextWrite, timestamps []uint64, v
 
 		// member
 		member := redis.Z{
-			Score:  value,                       // Sorted sets are sorted by their score in an ascending way. The same element only exists a single time, no repeated elements are permitted.
-			Member: fmt.Sprintf("%v", tsPadded), // must be string
+			Score:  value,                   // Sorted sets are sorted by their score in an ascending way. The same element only exists a single time, no repeated elements are permitted.
+			Member: FloatToString(tsPadded), // must be string
 		}
 
 		// add
@@ -67,13 +67,17 @@ func (instance *RedisBackend) Write(context ContextWrite, timestamps []uint64, v
 		if res.Err() != nil {
 			return res.Err()
 		}
-		log.Printf("%+v %v", res, members)
 		if res.Val() != int64(len(members)) {
 			return errors.New("failed write count")
 		}
 	}
 
 	return nil
+}
+
+func FloatToString(input_num float64) string {
+	// to convert a float number to a string
+	return strconv.FormatFloat(input_num, 'f', 6, 64)
 }
 
 func (instance *RedisBackend) getKeysInRange(ctx ContextRead) []string {
@@ -88,10 +92,11 @@ func (instance *RedisBackend) getKeysInRange(ctx ContextRead) []string {
 func (instance *RedisBackend) Read(context ContextRead) (res ReadResult) {
 	keys := instance.getKeysInRange(context)
 	conn := instance.getConnection(Namespace(context.Namespace))
+	resultMap := make(map[uint64]float64)
 	for _, key := range keys {
 		read := conn.ZRangeByScoreWithScores(key, redis.ZRangeBy{
-			Min: fmt.Sprintf("%v", context.From),
-			Max: fmt.Sprintf("%v", context.To),
+			Min: FloatToString(float64(math.Inf(-1))),
+			Max: FloatToString(float64(math.Inf(1))),
 		})
 		if read.Err() != nil {
 			res.Error = read.Err()
@@ -99,11 +104,15 @@ func (instance *RedisBackend) Read(context ContextRead) (res ReadResult) {
 		}
 		values := read.Val()
 		for _, value := range values {
-			log.Printf("%+v", value)
+			floatValue, err := strconv.ParseFloat(value.Member.(string), 64)
+			if err != nil {
+				res.Error = err
+				return
+			}
+			resultMap[uint64(floatValue)] = value.Score
 		}
-		// @todo implement into ReadResult
 	}
-	res.Error = errors.New("not implemented")
+	res.Results = resultMap
 
 	return
 }
