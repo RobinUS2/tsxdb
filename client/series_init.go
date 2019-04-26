@@ -33,10 +33,12 @@ func (series *Series) Init(conn *ManagedConnection) (err error) {
 
 	// request
 	request := types.SeriesMetadataRequest{
-		SeriesMetadata: types.SeriesMetadata{
-			Namespace:              series.namespace,
-			Tags:                   series.tags,
-			Name:                   series.name,
+		SeriesCreateMetadata: types.SeriesCreateMetadata{
+			SeriesMetadata: types.SeriesMetadata{
+				Namespace: series.namespace,
+				Tags:      series.tags,
+				Name:      series.name,
+			},
 			SeriesCreateIdentifier: types.SeriesCreateIdentifier(tools.RandomInsecureIdentifier()),
 		},
 		SessionTicket: conn.getSessionTicket(),

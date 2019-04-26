@@ -12,7 +12,7 @@ type IMetadata interface {
 }
 
 type CreateSeries struct {
-	Series map[types.SeriesCreateIdentifier]types.SeriesMetadata
+	Series map[types.SeriesCreateIdentifier]types.SeriesCreateMetadata
 }
 
 type CreateSeriesResult struct {

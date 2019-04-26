@@ -4,11 +4,15 @@ type SeriesMetadata struct {
 	Namespace int
 	Name      string
 	Tags      []string
+}
+
+type SeriesCreateMetadata struct {
+	SeriesMetadata
 	SeriesCreateIdentifier
 }
 
 type SeriesMetadataRequest struct {
-	SeriesMetadata
+	SeriesCreateMetadata
 	SessionTicket
 }
 
@@ -21,4 +25,4 @@ type SeriesMetadataResponse struct {
 
 type SeriesCreateIdentifier uint64 // xxhash64 of uuid bytes
 
-var EndpointSeriesMetadata = Endpoint("SeriesMetadata")
+var EndpointSeriesMetadata = Endpoint("SeriesCreateMetadata")

@@ -2,6 +2,7 @@ package backend
 
 import (
 	"../../rpc/types"
+	"encoding/json"
 	"fmt"
 	"github.com/bsm/redis-lock"
 	"github.com/go-redis/redis"
@@ -27,7 +28,7 @@ func (instance *RedisBackend) Type() TypeBackend {
 	return redisType
 }
 
-func (instance *RedisBackend) getKey(ctx Context, timestamp uint64) string {
+func (instance *RedisBackend) getDataKey(ctx Context, timestamp uint64) string {
 	timestampBucket := timestamp - (timestamp % timestampBucketSize)
 	return fmt.Sprintf("%d-%d-%d", ctx.Namespace, ctx.Series, timestampBucket)
 }
@@ -40,7 +41,7 @@ func (instance *RedisBackend) Write(context ContextWrite, timestamps []uint64, v
 	keyValues := make(map[string][]redis.Z)
 	for idx, timestamp := range timestamps {
 		// determine key
-		key := instance.getKey(context.Context, timestamp)
+		key := instance.getDataKey(context.Context, timestamp)
 
 		// init key
 		if keyValues[key] == nil {
@@ -86,7 +87,7 @@ func FloatToString(val float64) string {
 func (instance *RedisBackend) getKeysInRange(ctx ContextRead) []string {
 	keys := make([]string, 0)
 	for ts := ctx.From; ts < ctx.To; ts += timestampBucketSize {
-		key := instance.getKey(ctx.Context, ts)
+		key := instance.getDataKey(ctx.Context, ts)
 		keys = append(keys, key)
 	}
 	return keys
@@ -122,12 +123,16 @@ func (instance *RedisBackend) Read(context ContextRead) (res ReadResult) {
 	return
 }
 
-func (instance *RedisBackend) createOrUpdateSeries(identifier types.SeriesCreateIdentifier, series types.SeriesMetadata) (result types.SeriesMetadataResponse, err error) {
+func (instance *RedisBackend) getSeriesByNameKey(namespace Namespace, name string) string {
+	return fmt.Sprintf("series_%d_%s", namespace, name) // always prefix with namespace
+}
+
+func (instance *RedisBackend) createOrUpdateSeries(identifier types.SeriesCreateIdentifier, series types.SeriesCreateMetadata) (result types.SeriesMetadataResponse, err error) {
 	// get right client
 	conn := instance.getConnection(Namespace(series.Namespace))
 
 	// existing
-	seriesKey := fmt.Sprintf("series_%d_%s", series.Namespace, series.Name) // always prefix with namespace
+	seriesKey := instance.getSeriesByNameKey(Namespace(series.Namespace), series.Name)
 	res := conn.Get(seriesKey)
 	if filterNilErr(res.Err()) != nil {
 		err = res.Err()
@@ -175,17 +180,47 @@ func (instance *RedisBackend) createOrUpdateSeries(identifier types.SeriesCreate
 			result.New = true
 			result.Id = newId
 		}
-
 	} else {
 		// existing
-		id, err := strconv.ParseUint(res.Val(), 10, 64)
+		id, err := idStrToIdUint64(res.Val())
 		if err != nil {
 			return result, err
 		}
 		result.New = false
 		result.Id = id
 	}
+
+	// metadata persist (just overwrite for now)
+	{
+		metaKey := fmt.Sprintf("series_%d_%s_meta", series.Namespace, series.Name) // always prefix with namespace
+		j, err := json.Marshal(series.SeriesMetadata)
+		if err != nil {
+			panic(err)
+		}
+		if res := conn.Set(metaKey, string(j), 0); res.Err() != nil {
+			return result, res.Err()
+		}
+	}
+
+	// persist tags
+	if series.Tags != nil {
+		for _, tag := range series.Tags {
+			tagKey := fmt.Sprintf("tag_%d_%s", series.Namespace, tag) // always prefix with namespace
+			if res := conn.SAdd(tagKey, result.Id); res.Err() != nil {
+				return result, res.Err()
+			}
+		}
+	}
+
 	return
+}
+
+func idStrToIdUint64(in string) (uint64, error) {
+	id, err := strconv.ParseUint(in, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return id, nil
 }
 
 func (instance *RedisBackend) CreateOrUpdateSeries(create *CreateSeries) (result *CreateSeriesResult) {
@@ -212,6 +247,54 @@ func filterNilErr(err error) error {
 }
 
 func (instance *RedisBackend) SearchSeries(search *SearchSeries) (result *SearchSeriesResult) {
+	result = &SearchSeriesResult{
+		Series: nil, // lazy init
+	}
+	if search.And != nil {
+		result.Error = errors.New("no AND support yet")
+		return
+	}
+	if search.Or != nil {
+		result.Error = errors.New("no OR support yet")
+		return
+	}
+	if search.Comparator != SearchSeriesComparatorEquals {
+		result.Error = errors.New("only EQUALS support")
+		return
+	}
+	if search.Tag != "" {
+		result.Error = errors.New("not tag support yet")
+		return
+	}
+
+	// by name
+	if search.Name != "" {
+		conn := instance.getConnection(Namespace(search.Namespace))
+		seriesKey := instance.getSeriesByNameKey(Namespace(search.Namespace), search.Name)
+		res := conn.Get(seriesKey)
+		if filterNilErr(res.Err()) != nil {
+			result.Error = res.Err()
+			return
+		}
+		if res.Err() == redis.Nil {
+			// not found
+			return
+		}
+		var id uint64
+		var err error
+		if id, err = idStrToIdUint64(res.Val()); err != nil {
+			result.Error = err
+			return
+		}
+		result.Series = []types.SeriesIdentifier{
+			{
+				Namespace: search.Namespace,
+				Id:        id,
+			},
+		}
+		return
+	}
+
 	return nil
 }
 

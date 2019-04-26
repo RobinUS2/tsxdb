@@ -11,11 +11,13 @@ func TestMemoryBackend(t *testing.T) {
 
 	// create
 	req := &backend.CreateSeries{
-		Series: map[types.SeriesCreateIdentifier]types.SeriesMetadata{
+		Series: map[types.SeriesCreateIdentifier]types.SeriesCreateMetadata{
 			12345: {
-				Tags:                   []string{"one", "two"},
-				Name:                   "banana",
-				Namespace:              1,
+				SeriesMetadata: types.SeriesMetadata{
+					Tags:      []string{"one", "two"},
+					Name:      "banana",
+					Namespace: 1,
+				},
 				SeriesCreateIdentifier: 12345,
 			},
 		},

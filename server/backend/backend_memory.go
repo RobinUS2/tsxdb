@@ -140,7 +140,7 @@ func (instance *MemoryBackend) CreateOrUpdateSeries(create *CreateSeries) (resul
 		Results: make(map[types.SeriesCreateIdentifier]types.SeriesMetadataResponse),
 	}
 
-	var newSeries []types.SeriesMetadata
+	var newSeries []types.SeriesCreateMetadata
 	instance.seriesMux.RLock()
 	for _, serie := range create.Series {
 		existing := instance.__notLockedGetSeriesByNameSpaceAndName(Namespace(serie.Namespace), serie.Name)
@@ -156,7 +156,7 @@ func (instance *MemoryBackend) CreateOrUpdateSeries(create *CreateSeries) (resul
 			continue
 		}
 		if newSeries == nil {
-			newSeries = make([]types.SeriesMetadata, 0)
+			newSeries = make([]types.SeriesCreateMetadata, 0)
 		}
 		newSeries = append(newSeries, serie)
 	}

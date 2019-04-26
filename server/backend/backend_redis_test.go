@@ -57,11 +57,13 @@ func TestNewRedisBackendMultiConnection(t *testing.T) {
 	{
 		createIdentifier := types.SeriesCreateIdentifier(1234)
 		res := b.CreateOrUpdateSeries(&backend.CreateSeries{
-			Series: map[types.SeriesCreateIdentifier]types.SeriesMetadata{
+			Series: map[types.SeriesCreateIdentifier]types.SeriesCreateMetadata{
 				createIdentifier: {
-					Namespace:              1,
-					Name:                   name,
-					Tags:                   []string{"a", "b"},
+					SeriesMetadata: types.SeriesMetadata{
+						Namespace: 1,
+						Name:      name,
+						Tags:      []string{"a", "b"},
+					},
 					SeriesCreateIdentifier: createIdentifier,
 				},
 			},
@@ -86,11 +88,13 @@ func TestNewRedisBackendMultiConnection(t *testing.T) {
 	{
 		createIdentifier := types.SeriesCreateIdentifier(2345)
 		res := b.CreateOrUpdateSeries(&backend.CreateSeries{
-			Series: map[types.SeriesCreateIdentifier]types.SeriesMetadata{
+			Series: map[types.SeriesCreateIdentifier]types.SeriesCreateMetadata{
 				createIdentifier: {
-					Namespace:              1,
-					Name:                   name,
-					Tags:                   []string{"a", "b"},
+					SeriesMetadata: types.SeriesMetadata{
+						Namespace: 1,
+						Name:      name,
+						Tags:      []string{"a", "b"},
+					},
 					SeriesCreateIdentifier: createIdentifier,
 				},
 			},
@@ -151,6 +155,76 @@ func TestNewRedisBackendMultiConnection(t *testing.T) {
 		CompareFloat(writeVal, val, floatTolerance, func() {
 			t.Error("value mismatch", writeVal, val)
 		})
+	}
+
+	// search name
+	{
+		res := b.SearchSeries(&backend.SearchSeries{
+			SearchSeriesElement: backend.SearchSeriesElement{
+				Namespace:  1,
+				Comparator: backend.SearchSeriesComparatorEquals,
+				Name:       name,
+			},
+		})
+		if res == nil {
+			t.Error(res)
+		}
+		if res.Error != nil {
+			t.Error(res.Error)
+		}
+		if res.Series == nil {
+			t.Error()
+		}
+		if len(res.Series) != 1 {
+			t.Error(res.Series)
+		}
+		first := res.Series[0]
+		if first.Id != idFirst {
+			t.Error(first.Id, idFirst)
+		}
+		if first.Namespace != 1 {
+			t.Error(first.Namespace)
+		}
+	}
+
+	// search name wrong namespace
+	{
+		res := b.SearchSeries(&backend.SearchSeries{
+			SearchSeriesElement: backend.SearchSeriesElement{
+				Namespace:  2,
+				Comparator: backend.SearchSeriesComparatorEquals,
+				Name:       name,
+			},
+		})
+		if res == nil {
+			t.Error(res)
+		}
+		if res.Error != nil {
+			t.Error(res.Error)
+		}
+		if res.Series != nil {
+			t.Error("should be nil")
+		}
+	}
+
+	// search name non existing
+	{
+		res := b.SearchSeries(&backend.SearchSeries{
+			SearchSeriesElement: backend.SearchSeriesElement{
+				Namespace:  1,
+				Comparator: backend.SearchSeriesComparatorEquals,
+				Name:       name + "notExisting",
+			},
+		})
+		if res == nil {
+			t.Error(res)
+		}
+		if res.Error != nil {
+			t.Error(res.Error)
+		}
+		if res.Series != nil {
+			t.Error("should be nil")
+		}
 	}
 }
 func CompareFloat(a float64, b float64, tolerance float64, err func()) {

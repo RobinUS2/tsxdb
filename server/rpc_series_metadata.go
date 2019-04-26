@@ -27,8 +27,8 @@ func (endpoint *SeriesMetadataEndpoint) Execute(args *types.SeriesMetadataReques
 
 	// metadata
 	result := endpoint.server.metaStore.CreateOrUpdateSeries(&backend.CreateSeries{
-		Series: map[types.SeriesCreateIdentifier]types.SeriesMetadata{
-			args.SeriesCreateIdentifier: args.SeriesMetadata,
+		Series: map[types.SeriesCreateIdentifier]types.SeriesCreateMetadata{
+			args.SeriesCreateIdentifier: args.SeriesCreateMetadata,
 		},
 	})
 	thisResult := result.Results[args.SeriesCreateIdentifier] // only support one for now
