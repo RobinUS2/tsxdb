@@ -7,7 +7,6 @@ import (
 	"github.com/bsm/redis-lock"
 	"github.com/go-redis/redis"
 	"github.com/pkg/errors"
-	"log"
 	"math"
 	"math/rand"
 	"strconv"
@@ -210,7 +209,7 @@ func (instance *RedisBackend) createOrUpdateSeries(identifier types.SeriesCreate
 	// persist tags
 	if series.Tags != nil {
 		for _, tag := range series.Tags {
-			tagKey := fmt.Sprintf("tag_%d_%s", series.Namespace, tag) // always prefix with namespace
+			tagKey := instance.getTagKey(Namespace(series.Namespace), tag)
 			if res := conn.SAdd(tagKey, result.Id); res.Err() != nil {
 				return result, res.Err()
 			}
@@ -218,6 +217,10 @@ func (instance *RedisBackend) createOrUpdateSeries(identifier types.SeriesCreate
 	}
 
 	return
+}
+
+func (instance *RedisBackend) getTagKey(namespace Namespace, tag string) string {
+	return fmt.Sprintf("tag_%d_%s", namespace, tag) // always prefix with namespace
 }
 
 func idStrToIdUint64(in string) (uint64, error) {
@@ -317,7 +320,10 @@ func (instance *RedisBackend) getMetadata(namespace Namespace, id uint64) (resul
 		return result, err
 	}
 
-	log.Printf("get meta %+v", data)
+	result.Namespace = Namespace(data.Namespace)
+	result.Name = data.Name
+	result.Id = Series(id)
+	result.Tags = data.Tags
 
 	return
 }
@@ -325,7 +331,7 @@ func (instance *RedisBackend) getMetadata(namespace Namespace, id uint64) (resul
 func (instance *RedisBackend) DeleteSeries(ops *DeleteSeries) (result *DeleteSeriesResult) {
 	result = &DeleteSeriesResult{}
 	for _, op := range ops.Series {
-		//conn := instance.getConnection(Namespace(op.Namespace))
+		conn := instance.getConnection(Namespace(op.Namespace))
 
 		// meta
 		meta, err := instance.getMetadata(Namespace(op.Namespace), op.Id)
@@ -333,12 +339,32 @@ func (instance *RedisBackend) DeleteSeries(ops *DeleteSeries) (result *DeleteSer
 			result.Error = err
 			return
 		}
-		log.Printf("delete meta %+v", meta)
 
-		//conn.Del(instance.getSeriesByNameKey(Namespace(op.Namespace), op.Id)
+		// id
+		idStr := fmt.Sprintf("%d", meta.Id)
 
-		// @todo tag memberships (based on meta)
-		// @todo meta key
+		// key
+		if res := conn.Del(instance.getSeriesByNameKey(Namespace(op.Namespace), meta.Name)); res.Err() != nil {
+			result.Error = res.Err()
+			return
+		}
+
+		// tag memberships (based on meta)
+		for _, tag := range meta.Tags {
+			tagKey := instance.getTagKey(Namespace(op.Namespace), tag)
+			res := conn.SRem(tagKey, idStr)
+			if res.Err() != nil {
+				result.Error = res.Err()
+				return
+			}
+		}
+
+		// meta key
+		if res := conn.Del(instance.getSeriesMetaKey(Namespace(op.Namespace), uint64(meta.Id))); res.Err() != nil {
+			result.Error = res.Err()
+			return
+		}
+
 		// @todo data keys
 	}
 	return

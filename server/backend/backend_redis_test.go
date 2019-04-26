@@ -244,6 +244,26 @@ func TestNewRedisBackendMultiConnection(t *testing.T) {
 			t.Error(res.Error)
 		}
 	}
+
+	// search name
+	{
+		res := b.SearchSeries(&backend.SearchSeries{
+			SearchSeriesElement: backend.SearchSeriesElement{
+				Namespace:  1,
+				Comparator: backend.SearchSeriesComparatorEquals,
+				Name:       name,
+			},
+		})
+		if res == nil {
+			t.Error(res)
+		}
+		if res.Error != nil {
+			t.Error(res.Error)
+		}
+		if res.Series != nil {
+			t.Error("should be nil")
+		}
+	}
 }
 func CompareFloat(a float64, b float64, tolerance float64, err func()) {
 	if math.Abs(a-b) > tolerance {
