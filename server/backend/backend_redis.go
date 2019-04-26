@@ -7,6 +7,7 @@ import (
 	"math"
 	"math/rand"
 	"strconv"
+	"strings"
 )
 
 const redisType = TypeBackend("redis")
@@ -52,8 +53,8 @@ func (instance *RedisBackend) Write(context ContextWrite, timestamps []uint64, v
 
 		// member
 		member := redis.Z{
-			Score:  value,                   // Sorted sets are sorted by their score in an ascending way. The same element only exists a single time, no repeated elements are permitted.
-			Member: FloatToString(tsPadded), // must be string
+			Score:  tsPadded,                                            // Sorted sets are sorted by their score in an ascending way. The same element only exists a single time, no repeated elements are permitted.
+			Member: FloatToString(value) + fmt.Sprintf(":%f", tsPadded), // must be string and unique
 		}
 
 		// add
@@ -75,9 +76,9 @@ func (instance *RedisBackend) Write(context ContextWrite, timestamps []uint64, v
 	return nil
 }
 
-func FloatToString(input_num float64) string {
+func FloatToString(val float64) string {
 	// to convert a float number to a string
-	return strconv.FormatFloat(input_num, 'f', 6, 64)
+	return strconv.FormatFloat(val, 'f', 6, 64)
 }
 
 func (instance *RedisBackend) getKeysInRange(ctx ContextRead) []string {
@@ -95,8 +96,8 @@ func (instance *RedisBackend) Read(context ContextRead) (res ReadResult) {
 	resultMap := make(map[uint64]float64)
 	for _, key := range keys {
 		read := conn.ZRangeByScoreWithScores(key, redis.ZRangeBy{
-			Min: FloatToString(float64(math.Inf(-1))),
-			Max: FloatToString(float64(math.Inf(1))),
+			Min: FloatToString(float64(context.From)),
+			Max: FloatToString(float64(context.To)),
 		})
 		if read.Err() != nil {
 			res.Error = read.Err()
@@ -104,12 +105,14 @@ func (instance *RedisBackend) Read(context ContextRead) (res ReadResult) {
 		}
 		values := read.Val()
 		for _, value := range values {
-			floatValue, err := strconv.ParseFloat(value.Member.(string), 64)
+			member := value.Member.(string)
+			memberSplit := strings.Split(member, ":")
+			floatValue, err := strconv.ParseFloat(memberSplit[0], 64)
 			if err != nil {
 				res.Error = err
 				return
 			}
-			resultMap[uint64(floatValue)] = value.Score
+			resultMap[uint64(value.Score)] = floatValue
 		}
 	}
 	res.Results = resultMap

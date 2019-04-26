@@ -2,10 +2,13 @@ package backend_test
 
 import (
 	"../backend"
+	"math"
 	"math/rand"
 	"testing"
 	"time"
 )
+
+const floatTolerance = 0.00001
 
 func TestNewRedisBackendSingleConnection(t *testing.T) {
 	opts := &backend.RedisOpts{
@@ -84,8 +87,13 @@ func TestNewRedisBackendMultiConnection(t *testing.T) {
 		if now != ts {
 			t.Error("timestamp mismatch", now, ts)
 		}
-		if writeVal != val {
+		CompareFloat(writeVal, val, floatTolerance, func() {
 			t.Error("value mismatch", writeVal, val)
-		}
+		})
+	}
+}
+func CompareFloat(a float64, b float64, tolerance float64, err func()) {
+	if math.Abs(a-b) > tolerance {
+		err()
 	}
 }
