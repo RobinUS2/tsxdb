@@ -1,6 +1,6 @@
 package tsxdb
 
-import "./client"
+import "github.com/RobinUS2/tsxdb/client"
 
 func NewClientOpts() *client.Opts {
 	return client.NewOpts()
