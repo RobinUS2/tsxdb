@@ -7,9 +7,14 @@ type Series struct {
 	tags      []string
 	namespace int
 	id        uint64
+	ttl       uint // in seconds, ~ 50.000 days
 	name      string
 
 	initMux sync.Mutex
+}
+
+func (series *Series) TTL() uint {
+	return series.ttl
 }
 
 func (series *Series) Namespace() int {

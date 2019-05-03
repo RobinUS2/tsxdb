@@ -30,7 +30,7 @@ func (instance *RedisBackend) Type() TypeBackend {
 
 func (instance *RedisBackend) getDataKey(ctx Context, timestamp uint64) string {
 	timestampBucket := timestamp - (timestamp % timestampBucketSize)
-	return fmt.Sprintf("%d-%d-%d", ctx.Namespace, ctx.Series, timestampBucket)
+	return fmt.Sprintf("data_%d-%d-%d", ctx.Namespace, ctx.Series, timestampBucket)
 }
 
 func (instance *RedisBackend) Write(context ContextWrite, timestamps []uint64, values []float64) error {
