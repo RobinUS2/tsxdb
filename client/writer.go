@@ -1,8 +1,8 @@
 package client
 
 import (
-	"../rpc/types"
 	"errors"
+	"github.com/RobinUS2/tsxdb/rpc/types"
 )
 
 var clientValidationErrMismatchSent = errors.New("mismatch between expected written values and received")

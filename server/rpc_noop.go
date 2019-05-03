@@ -1,7 +1,7 @@
 package server
 
 import (
-	"../rpc/types"
+	"github.com/RobinUS2/tsxdb/rpc/types"
 )
 
 func init() {

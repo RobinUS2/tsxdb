@@ -1,8 +1,8 @@
 package client
 
 import (
-	"../rpc/types"
-	"../tools"
+	"github.com/RobinUS2/tsxdb/rpc/types"
+	"github.com/RobinUS2/tsxdb/tools"
 	"github.com/pkg/errors"
 	"sync/atomic"
 )

@@ -1,8 +1,8 @@
 package backend
 
 import (
-	"../../rpc/types"
 	"errors"
+	"github.com/RobinUS2/tsxdb/rpc/types"
 	"math/rand"
 	"sync"
 	"sync/atomic"

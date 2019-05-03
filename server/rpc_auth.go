@@ -1,13 +1,13 @@
 package server
 
 import (
-	"../rpc/types"
-	"../tools"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha512"
 	"encoding/base64"
 	"errors"
+	"github.com/RobinUS2/tsxdb/rpc/types"
+	"github.com/RobinUS2/tsxdb/tools"
 	insecureRand "math/rand"
 )
 

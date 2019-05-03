@@ -1,9 +1,9 @@
 package backend
 
 import (
-	"../../rpc/types"
 	"encoding/json"
 	"fmt"
+	"github.com/RobinUS2/tsxdb/rpc/types"
 	"github.com/bsm/redis-lock"
 	"github.com/go-redis/redis"
 	"github.com/pkg/errors"

@@ -1,7 +1,7 @@
 package server
 
 import (
-	"../rpc"
+	"github.com/RobinUS2/tsxdb/rpc"
 )
 
 type Opts struct {

@@ -1,13 +1,13 @@
 package client
 
 import (
-	rpc2 "../rpc"
-	"../rpc/types"
-	"../tools"
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
 	"fmt"
+	rpc2 "github.com/RobinUS2/tsxdb/rpc"
+	"github.com/RobinUS2/tsxdb/rpc/types"
+	"github.com/RobinUS2/tsxdb/tools"
 	insecureRand "math/rand"
 	"net/rpc"
 	"strings"

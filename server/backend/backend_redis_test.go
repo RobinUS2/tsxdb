@@ -1,9 +1,9 @@
 package backend_test
 
 import (
-	"../../rpc/types"
 	"../backend"
 	"fmt"
+	"github.com/RobinUS2/tsxdb/rpc/types"
 	"math"
 	"math/rand"
 	"testing"
