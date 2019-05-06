@@ -1,7 +1,7 @@
 package client_test
 
 import (
-	"github.com/RobinUS2/tsxdb/client"
+	"github.com/Route42/tsxdb/client"
 	"testing"
 )
 

@@ -2,7 +2,7 @@ package backend_test
 
 import (
 	"../backend"
-	"github.com/RobinUS2/tsxdb/rpc/types"
+	"github.com/Route42/tsxdb/rpc/types"
 	"testing"
 )
 

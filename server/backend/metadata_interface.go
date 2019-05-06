@@ -1,7 +1,7 @@
 package backend
 
 import (
-	"github.com/RobinUS2/tsxdb/rpc/types"
+	"github.com/Route42/tsxdb/rpc/types"
 )
 
 type IMetadata interface {

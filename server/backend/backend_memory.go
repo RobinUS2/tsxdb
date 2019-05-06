@@ -2,7 +2,7 @@ package backend
 
 import (
 	"errors"
-	"github.com/RobinUS2/tsxdb/rpc/types"
+	"github.com/Route42/tsxdb/rpc/types"
 	"math/rand"
 	"sync"
 	"sync/atomic"
@@ -148,10 +148,10 @@ func (instance *MemoryBackend) CreateOrUpdateSeries(create *CreateSeries) (resul
 			// @todo support changes (e.g. adding tags)
 			// return existing metadata
 			result.Results[serie.SeriesCreateIdentifier] = types.SeriesMetadataResponse{
-				Id:                     uint64(existing.Id),
-				Error:                  nil,
+				Id:    uint64(existing.Id),
+				Error: nil,
 				SeriesCreateIdentifier: serie.SeriesCreateIdentifier,
-				New:                    false,
+				New: false,
 			}
 			continue
 		}
@@ -186,10 +186,10 @@ func (instance *MemoryBackend) CreateOrUpdateSeries(create *CreateSeries) (resul
 
 			// result
 			result.Results[serie.SeriesCreateIdentifier] = types.SeriesMetadataResponse{
-				Id:                     id,
-				Error:                  nil,
+				Id:    id,
+				Error: nil,
 				SeriesCreateIdentifier: serie.SeriesCreateIdentifier,
-				New:                    true,
+				New: true,
 			}
 		}
 		instance.seriesMux.Unlock()
