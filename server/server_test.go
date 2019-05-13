@@ -1,11 +1,11 @@
 package server_test
 
 import (
-	"../server"
 	"encoding/base64"
 	"fmt"
 	"github.com/RobinUS2/tsxdb/client"
 	"github.com/RobinUS2/tsxdb/rpc/types"
+	"github.com/RobinUS2/tsxdb/server"
 	"github.com/RobinUS2/tsxdb/tools"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"net/rpc"

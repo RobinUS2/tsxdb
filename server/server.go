@@ -1,9 +1,9 @@
 package server
 
 import (
-	"./backend"
-	"./rollup"
 	"errors"
+	"github.com/RobinUS2/tsxdb/server/backend"
+	"github.com/RobinUS2/tsxdb/server/rollup"
 	"log"
 	"net"
 	"net/rpc"

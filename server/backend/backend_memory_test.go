@@ -1,8 +1,8 @@
 package backend_test
 
 import (
-	"../backend"
 	"github.com/RobinUS2/tsxdb/rpc/types"
+	"github.com/RobinUS2/tsxdb/server/backend"
 	"testing"
 )
 

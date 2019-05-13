@@ -1,7 +1,7 @@
 package rollup
 
 import (
-	"../backend"
+	"github.com/RobinUS2/tsxdb/server/backend"
 )
 
 type Reader struct {

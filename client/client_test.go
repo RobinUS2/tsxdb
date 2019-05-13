@@ -1,9 +1,9 @@
 package client_test
 
 import (
-	"../client"
-	"../server"
 	"fmt"
+	"github.com/RobinUS2/tsxdb/client"
+	"github.com/RobinUS2/tsxdb/server"
 	"sync/atomic"
 	"testing"
 	"time"
