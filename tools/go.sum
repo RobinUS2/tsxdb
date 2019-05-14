@@ -1,5 +1,7 @@
 github.com/OneOfOne/xxhash v1.2.5 h1:zl/OfRA6nftbBK9qTohYBJ5xvw6C/oNKizR7cZGl3cI=
 github.com/OneOfOne/xxhash v1.2.5/go.mod h1:eZbhyaAYD41SGSSsnmcpxVoRiQ/MPUTjUdIIOT9Um7Q=
+github.com/RobinUS2/tsxdb/rpc v0.0.0-20190513114607-96dd167a5920 h1:h8Gq4me7w4uacl5Cue7+AlneL+xV5mKvzP3pSBBMPnI=
+github.com/RobinUS2/tsxdb/rpc v0.0.0-20190513114607-96dd167a5920/go.mod h1:YIovcHT02SyZ6V1IiEw1qWGq+6GM66KwTHs44AB+bUk=
 github.com/kr/pretty v0.1.0 h1:L/CwN0zerZDmRFUapSPitk6f+Q3+0za1rQkzVuMiMFI=
 github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORNo=
 github.com/kr/pty v1.1.1/go.mod h1:pFQYn66WHrOpPYNljwOMqo10TkYh1fy3cYio2l3bCsQ=

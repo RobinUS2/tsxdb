@@ -1,11 +1,9 @@
 package client
 
 import (
-	"crypto/rand"
 	"encoding/base64"
 	"errors"
 	"fmt"
-	rpc2 "github.com/RobinUS2/tsxdb/rpc"
 	"github.com/RobinUS2/tsxdb/rpc/types"
 	"github.com/RobinUS2/tsxdb/tools"
 	insecureRand "math/rand"
@@ -86,26 +84,6 @@ func (conn *ManagedConnection) Close() error {
 	return nil
 }
 
-func BasicAuthRequest(opts rpc2.OptsConnection) (request types.AuthRequest, err error) {
-	// random data
-	var nonce = make([]byte, 32)
-	_, err = rand.Read(nonce)
-	if err != nil {
-		// missing entropy, risky
-		return
-	}
-
-	// signature
-	signature, _ := tools.Hmac([]byte(opts.AuthToken), nonce)
-
-	// request (single)
-	request = types.AuthRequest{
-		Nonce:     base64.StdEncoding.EncodeToString(nonce),
-		Signature: base64.StdEncoding.EncodeToString(signature),
-	}
-	return
-}
-
 func (conn *ManagedConnection) executeAuthRequest(request types.AuthRequest) (response *types.AuthResponse, err error) {
 	success := false
 	defer func() {
@@ -137,7 +115,7 @@ func (conn *ManagedConnection) auth(client *Instance) error {
 	var sessionSecret []byte
 	{
 		// phase 1 initial payload
-		request, err := BasicAuthRequest(client.opts.OptsConnection)
+		request, err := tools.BasicAuthRequest(client.opts.OptsConnection)
 		if err != nil {
 			return err
 		}
@@ -165,7 +143,7 @@ func (conn *ManagedConnection) auth(client *Instance) error {
 
 	// second stage
 	{
-		request, err := BasicAuthRequest(client.opts.OptsConnection)
+		request, err := tools.BasicAuthRequest(client.opts.OptsConnection)
 		if err != nil {
 			return err
 		}
