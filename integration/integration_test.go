@@ -1,8 +1,9 @@
-package client_test
+package integration_test
 
 import (
 	"fmt"
 	"github.com/RobinUS2/tsxdb/client"
+	"github.com/RobinUS2/tsxdb/integration"
 	"github.com/RobinUS2/tsxdb/server"
 	"sync/atomic"
 	"testing"
@@ -10,6 +11,12 @@ import (
 )
 
 const token = "verySecure123@#$"
+
+func TestRun(t *testing.T) {
+	if err := integration.Run(); err != nil {
+		t.Error(err)
+	}
+}
 
 func TestNew(t *testing.T) {
 	// start server
