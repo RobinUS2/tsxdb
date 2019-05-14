@@ -20,5 +20,6 @@ require (
 	github.com/bsm/redis-lock v8.0.0+incompatible
 	github.com/go-redis/redis v6.15.2+incompatible
 	github.com/pkg/errors v0.8.1
+	gopkg.in/yaml.v2 v2.2.1
 	k8s.io/apimachinery v0.0.0-20190511063452-5b67e417bf61
 )

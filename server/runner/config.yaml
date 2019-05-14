@@ -1,0 +1,4 @@
+connection:
+  listen_port: 1234
+  listen_host: 0.0.0.0
+  auth_token: "verySecure"
