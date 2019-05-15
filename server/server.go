@@ -2,8 +2,10 @@ package server
 
 import (
 	"errors"
+	"fmt"
 	"github.com/RobinUS2/tsxdb/server/backend"
 	"github.com/RobinUS2/tsxdb/server/rollup"
+	"github.com/RobinUS2/tsxdb/telnet"
 	"log"
 	"net"
 	"net/rpc"
@@ -74,10 +76,30 @@ func (instance *Instance) Init() error {
 	return nil
 }
 
-func (instance *Instance) Start() error {
+func (instance *Instance) Start() (err error) {
+	// catch runtime errors
+	defer func() {
+		if r := recover(); r != nil {
+			err = errors.New(fmt.Sprintf("server runtime error %s", r))
+		}
+	}()
+
+	// start server
 	if err := instance.StartListening(); err != nil {
 		return err
 	}
+
+	// telnet server
+	if instance.Opts().TelnetPort > 0 {
+		t := telnet.New(instance.Opts().TelnetPort)
+		go func() {
+			err := t.Listen()
+			if err != nil {
+				panic(err)
+			}
+		}()
+	}
+
 	return nil
 }
 

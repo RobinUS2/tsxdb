@@ -9,6 +9,7 @@ import (
 
 type Opts struct {
 	rpc.OptsConnection `yaml:"connection"`
+	TelnetPort         int `yaml:"telnet_port"`
 }
 
 func (opts *Opts) ReadYamlFile(path string) error {
