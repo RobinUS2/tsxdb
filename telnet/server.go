@@ -2,6 +2,7 @@ package telnet
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"github.com/reiver/go-oi"
 	tel "github.com/reiver/go-telnet" // weird things happen if package with same name is imported as the package/module it's in unless aliased
@@ -15,6 +16,9 @@ type Instance struct {
 }
 
 func (instance *Instance) Listen() error {
+	if len(strings.TrimSpace(instance.opts.AuthToken)) < 1 {
+		return errors.New("missing auth token")
+	}
 	listenStr := fmt.Sprintf("%s:%d", instance.opts.Host, instance.opts.Port)
 	log.Printf("telnet listening at %s", listenStr)
 	err := tel.ListenAndServe(listenStr, instance)
@@ -60,7 +64,11 @@ func (instance *Instance) ServeTELNET(ctx tel.Context, w tel.Writer, r tel.Reade
 		for {
 			line := <-lines
 			if err := session.Handle(InputLine(line)); err != nil {
-				panic(err)
+				// pass error
+				b := []byte(fmt.Sprintf("%s", err) + "\n")
+				if nWritten, err := oi.LongWrite(w, b); err != nil || int64(len(b)) != nWritten {
+					panic("failed to write")
+				}
 			}
 		}
 	}()

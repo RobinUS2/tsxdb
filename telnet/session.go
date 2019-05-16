@@ -1,6 +1,7 @@
 package telnet
 
 import (
+	"errors"
 	"github.com/reiver/go-oi"
 	tel "github.com/reiver/go-telnet"
 	"log"
@@ -8,17 +9,28 @@ import (
 )
 
 type Session struct {
-	instance *Instance
-	writer   tel.Writer
+	instance      *Instance
+	writer        tel.Writer
+	authenticated bool
 }
 
 func (session *Session) Handle(typedLine InputLine) error {
 	line := string(typedLine)
-	log.Println(line)
+	log.Printf("telnet rcv %s", line)
 
+	// auth
 	if strings.HasPrefix(line, "auth ") {
-		token := strings.SplitN(line, "auth ", 2)
-		log.Println(token[1])
+		token := strings.SplitN(line, "auth ", 2)[1]
+		if token != session.instance.opts.AuthToken {
+			return errors.New("invalid auth token")
+		}
+		// good
+		session.authenticated = true
+	}
+
+	// authenticated?
+	if !session.authenticated {
+		return errors.New("not authenticated")
 	}
 
 	// echo back

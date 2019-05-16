@@ -3,7 +3,7 @@ package telnet
 type Opts struct {
 	Host      string
 	Port      int
-	AuthToken string `yaml:"auth_token"`
+	AuthToken string
 }
 
 func NewOpts() *Opts {
