@@ -4,14 +4,22 @@ import (
 	"github.com/reiver/go-oi"
 	tel "github.com/reiver/go-telnet"
 	"log"
+	"strings"
 )
 
 type Session struct {
-	writer tel.Writer
+	instance *Instance
+	writer   tel.Writer
 }
 
-func (session *Session) Handle(line InputLine) error {
+func (session *Session) Handle(typedLine InputLine) error {
+	line := string(typedLine)
 	log.Println(line)
+
+	if strings.HasPrefix(line, "auth ") {
+		token := strings.SplitN(line, "auth ", 2)
+		log.Println(token[1])
+	}
 
 	// echo back
 	b := []byte(line + "\n")
@@ -27,8 +35,10 @@ func (session *Session) SetWriter(writer tel.Writer) {
 	session.writer = writer
 }
 
-func NewSession() *Session {
-	return &Session{}
+func NewSession(instance *Instance) *Session {
+	return &Session{
+		instance: instance,
+	}
 }
 
 type InputLine string

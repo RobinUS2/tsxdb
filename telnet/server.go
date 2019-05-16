@@ -28,7 +28,7 @@ func (instance *Instance) ServeTELNET(ctx tel.Context, w tel.Writer, r tel.Reade
 	lineBuffer := &bytes.Buffer{}
 	newBytes := make(chan []byte, 1)
 	lines := make(chan string, 1)
-	session := NewSession()
+	session := NewSession(instance)
 	session.SetWriter(w)
 
 	// into line buffer
@@ -86,17 +86,5 @@ func (instance *Instance) ServeTELNET(ctx tel.Context, w tel.Writer, r tel.Reade
 func New(opts *Opts) *Instance {
 	return &Instance{
 		opts: opts,
-	}
-}
-
-type Opts struct {
-	Host string
-	Port int
-}
-
-func NewOpts() *Opts {
-	return &Opts{
-		Host: "127.0.0.1", // default localhost for security
-		Port: 5555,
 	}
 }

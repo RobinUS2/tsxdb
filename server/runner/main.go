@@ -7,7 +7,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"strings"
 )
 
 var shutdown = make(chan os.Signal, 1)
@@ -23,20 +22,9 @@ func main() {
 	// config
 	opts := server.NewOpts()
 
-	// read first config
-	configRead := false
-	configPaths := strings.Split(configPathsStr, ",")
-	for _, configPath := range configPaths {
-		if !tools.FileExists(configPath) {
-			continue
-		}
-		if err := opts.ReadYamlFile(configPath); err != nil {
-			log.Fatalf("unable to read config in %s: %s", configPath, err)
-		}
-		configRead = true
-	}
-	if !configRead {
-		log.Fatalf("no config files found in %v", configPaths)
+	// read config
+	if err := tools.ReadYamlFileInPath(configPathsStr, opts); err != nil {
+		log.Fatalf("failed to read config %s", err)
 	}
 
 	// new instance
