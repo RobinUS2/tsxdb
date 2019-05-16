@@ -34,17 +34,24 @@ func (session *Session) Handle(typedLine InputLine) error {
 	}
 
 	// echo back
-	b := []byte(line + "\n")
-	n := len(b)
-	if nWritten, err := oi.LongWrite(session.writer, b); err != nil || nWritten != int64(n) {
-		panic("failed to write")
-	}
+	_ = session.Write(line)
 
 	return nil
 }
 
 func (session *Session) SetWriter(writer tel.Writer) {
 	session.writer = writer
+}
+
+func (session *Session) Write(s string) error {
+	if !strings.HasSuffix(s, "\n") {
+		s = s + "\n"
+	}
+	b := []byte(s)
+	if nWritten, err := oi.LongWrite(session.writer, b); err != nil || int64(len(b)) != nWritten {
+		return err
+	}
+	return nil
 }
 
 func NewSession(instance *Instance) *Session {

@@ -65,9 +65,8 @@ func (instance *Instance) ServeTELNET(ctx tel.Context, w tel.Writer, r tel.Reade
 			line := <-lines
 			if err := session.Handle(InputLine(line)); err != nil {
 				// pass error
-				b := []byte(fmt.Sprintf("%s", err) + "\n")
-				if nWritten, err := oi.LongWrite(w, b); err != nil || int64(len(b)) != nWritten {
-					panic("failed to write")
+				if err := session.Write(err.Error()); err != nil {
+					panic(err)
 				}
 			}
 		}
