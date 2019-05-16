@@ -28,6 +28,8 @@ func (instance *Instance) ServeTELNET(ctx tel.Context, w tel.Writer, r tel.Reade
 	lineBuffer := &bytes.Buffer{}
 	newBytes := make(chan []byte, 1)
 	lines := make(chan string, 1)
+	session := NewSession()
+	session.SetWriter(w)
 
 	// into line buffer
 	const newline = '\n'
@@ -57,11 +59,14 @@ func (instance *Instance) ServeTELNET(ctx tel.Context, w tel.Writer, r tel.Reade
 	go func() {
 		for {
 			line := <-lines
-			log.Println(line)
+			if err := session.Handle(InputLine(line)); err != nil {
+				panic(err)
+			}
 		}
 	}()
 
-	// read from socket
+	// read from socket, this must be last while loop since it will block the other go-routines above from exiting the function
+	// on socket close the rest will stop as well
 	for {
 		var readBuffer = make([]byte, 1)
 		n, err := r.Read(readBuffer)
@@ -70,11 +75,6 @@ func (instance *Instance) ServeTELNET(ctx tel.Context, w tel.Writer, r tel.Reade
 
 			// write to line buffer
 			newBytes <- readBytes
-
-			// echo back
-			if nWritten, err := oi.LongWrite(w, readBytes); err != nil || nWritten != int64(n) {
-				panic("failed to write")
-			}
 		}
 
 		if nil != err {
