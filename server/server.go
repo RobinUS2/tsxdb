@@ -91,7 +91,9 @@ func (instance *Instance) Start() (err error) {
 
 	// telnet server
 	if instance.Opts().TelnetPort > 0 {
-		t := telnet.New(instance.Opts().TelnetPort)
+		telOpts := telnet.NewOpts()
+		telOpts.Port = instance.Opts().TelnetPort
+		t := telnet.New(telOpts)
 		go func() {
 			err := t.Listen()
 			if err != nil {
