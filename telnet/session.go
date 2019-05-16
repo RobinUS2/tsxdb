@@ -8,6 +8,8 @@ import (
 	"strings"
 )
 
+const successMessage = "OK"
+
 type Session struct {
 	instance      *Instance
 	writer        tel.Writer
@@ -26,6 +28,14 @@ func (session *Session) Handle(typedLine InputLine) error {
 		}
 		// good
 		session.authenticated = true
+
+		// yeah
+		if err := session.Write(successMessage); err != nil {
+			return err
+		}
+
+		// done
+		return nil
 	}
 
 	// authenticated?
@@ -34,7 +44,9 @@ func (session *Session) Handle(typedLine InputLine) error {
 	}
 
 	// echo back
-	_ = session.Write(line)
+	if err := session.Write("ECHO " + line); err != nil {
+		return err
+	}
 
 	return nil
 }
