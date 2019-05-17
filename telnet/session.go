@@ -70,11 +70,8 @@ func (session *Session) Handle(typedLine InputLine) error {
 
 	// echo back
 	if command == "ECHO" {
-		// echo
-		if err := session.Write("ECHO " + strings.Replace(line, "ECHO ", "", 1)); err != nil {
-			return err
-		}
-		return nil
+		// echo, as error, since redis else can't handle it
+		return session.WriteErrMessage(errors.New(strings.Replace(line, "ECHO ", "", 1)))
 	} else if command == redisAddToSortedSetCommand {
 		// add to series
 		log.Printf("zadd %+v", tokens)
