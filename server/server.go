@@ -93,6 +93,7 @@ func (instance *Instance) Start() (err error) {
 	if instance.Opts().TelnetPort > 0 {
 		telOpts := telnet.NewOpts()
 		telOpts.Port = instance.Opts().TelnetPort
+		telOpts.Host = instance.Opts().TelnetHost
 		telOpts.AuthToken = instance.Opts().AuthToken
 		t := telnet.New(telOpts)
 		go func() {

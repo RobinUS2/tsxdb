@@ -3,3 +3,4 @@ connection:
   listen_host: 0.0.0.0
   auth_token: "verySecure"
 telnet_port: 5555
+telnet_host: "0.0.0.0" # disable this if you want to listen only on localhost

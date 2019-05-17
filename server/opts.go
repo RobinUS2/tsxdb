@@ -6,7 +6,8 @@ import (
 
 type Opts struct {
 	rpc.OptsConnection `yaml:"connection"`
-	TelnetPort         int `yaml:"telnet_port"`
+	TelnetPort         int    `yaml:"telnet_port"`
+	TelnetHost         string `yaml:"telnet_host"`
 }
 
 func NewOpts() *Opts {

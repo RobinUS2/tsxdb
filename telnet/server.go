@@ -8,6 +8,7 @@ import (
 	tel "github.com/reiver/go-telnet" // weird things happen if package with same name is imported as the package/module it's in unless aliased
 	"io"
 	"log"
+	"strconv"
 	"strings"
 )
 
@@ -28,7 +29,7 @@ func (instance *Instance) Listen() error {
 	return nil
 }
 
-func (instance *Instance) ServeTELNET(ctx tel.Context, w tel.Writer, r tel.Reader) {
+func (instance *Instance) Serve(w tel.Writer, r tel.Reader) {
 	lineBuffer := &bytes.Buffer{}
 	newBytes := make(chan []byte, 1)
 	lines := make(chan string, 1)
@@ -61,11 +62,80 @@ func (instance *Instance) ServeTELNET(ctx tel.Context, w tel.Writer, r tel.Reade
 
 	// handle lines
 	go func() {
+		const recentLineBufferSize = 5
+		var recentLines = make([]string, recentLineBufferSize)
+		var recentLineIdx = 0
+		var detectingRedis = false
+		var firstLine = true
+		var lineTokens = make([]string, 0)
+		var expectingTuples = uint(0)
 		for {
 			line := <-lines
+			recentLineIdx = (recentLineIdx + 1) % recentLineBufferSize
+			recentLines[recentLineIdx] = line
+
+			// detect redis, essentially it starts with *1 $7 COMMAND
+			if firstLine {
+				firstLine = false
+				if line == "*1" {
+					// smells like redis
+					detectingRedis = true
+					continue
+				}
+			}
+			if detectingRedis && line == "COMMAND" {
+				detectingRedis = false
+				session.SetMode(ModeRedis)
+				continue
+			}
+
+			if session.mode == ModeRedis {
+				// buffer
+				var flush = false
+
+				// @todo add and validate, if broken, reset
+				if expectingTuples == 0 && len(lineTokens) == 0 {
+					if strings.HasPrefix(line, "*") {
+						n, _ := strconv.ParseUint(line[1:], 10, 64)
+						if n < 1 {
+							panic("should be >= 1")
+						}
+						expectingTuples = uint(n)
+						continue
+					} else {
+						panic("first should be *x")
+					}
+				}
+				if strings.HasPrefix(line, "$") {
+					// ignore length markers
+					continue
+				}
+
+				// append token
+				lineTokens = append(lineTokens, line)
+
+				// we have all tokens
+				if uint(len(lineTokens)) == expectingTuples {
+					flush = true
+				}
+
+				// wait for more tokens?
+				if !flush {
+					continue
+				}
+
+				// join as if it were a regular line
+				line = strings.Join(lineTokens, " ")
+
+				// reset
+				lineTokens = make([]string, 0)
+				expectingTuples = 0
+			}
+
+			// handle
 			if err := session.Handle(InputLine(line)); err != nil {
 				// pass error
-				if err := session.Write(err.Error()); err != nil {
+				if err := session.WriteErrMessage(err); err != nil {
 					panic(err)
 				}
 			}
@@ -84,10 +154,18 @@ func (instance *Instance) ServeTELNET(ctx tel.Context, w tel.Writer, r tel.Reade
 			newBytes <- readBytes
 		}
 
-		if nil != err {
+		// error?
+		if err != nil {
+			if err != io.EOF {
+				panic(err)
+			}
 			break
 		}
 	}
+}
+
+func (instance *Instance) ServeTELNET(ctx tel.Context, w tel.Writer, r tel.Reader) {
+	instance.Serve(w, r)
 }
 
 func New(opts *Opts) *Instance {

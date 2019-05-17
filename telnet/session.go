@@ -2,29 +2,54 @@ package telnet
 
 import (
 	"errors"
+	"fmt"
 	"github.com/reiver/go-oi"
 	tel "github.com/reiver/go-telnet"
 	"log"
 	"strings"
 )
 
-const successMessage = "OK"
+const successMessage = "+OK"
+const errorMessage = "-ERR"
+const redisAddToSortedSetCommand = "ZADD" // ZADD key [NX|XX] [CH] [INCR] score member [score member ...] https://redis.io/commands/zadd
+
+type Mode string
+
+const ModePlain Mode = "PLAIN" // auth
+const ModeRedis Mode = "REDIS" // *x $y zzzz => *1 $4 auth
 
 type Session struct {
 	instance      *Instance
 	writer        tel.Writer
 	authenticated bool
+	mode          Mode
+}
+
+func (session *Session) SetMode(mode Mode) {
+	log.Printf("session in mode %s", mode)
+	session.mode = mode
 }
 
 func (session *Session) Handle(typedLine InputLine) error {
-	line := string(typedLine)
+	line := strings.TrimSpace(string(typedLine))
+	if len(line) < 1 {
+		return nil
+	}
 	log.Printf("telnet rcv %s", line)
 
+	// tokens
+	tokens := strings.Split(line, " ")
+	command := strings.ToUpper(tokens[0])
+
 	// auth
-	if strings.HasPrefix(line, "auth ") {
-		token := strings.SplitN(line, "auth ", 2)[1]
+	if command == "AUTH" {
+		if len(tokens) < 2 {
+			return session.WriteErrMessage(errors.New("missing auth token"))
+		}
+		// @todo actually execute over the write to the server (both local check + server)
+		token := tokens[1]
 		if token != session.instance.opts.AuthToken {
-			return errors.New("invalid auth token")
+			return session.WriteErrMessage(errors.New("invalid auth token"))
 		}
 		// good
 		session.authenticated = true
@@ -40,25 +65,40 @@ func (session *Session) Handle(typedLine InputLine) error {
 
 	// authenticated?
 	if !session.authenticated {
-		return errors.New("not authenticated")
+		return session.WriteErrMessage(errors.New("not authenticated"))
 	}
 
 	// echo back
-	if err := session.Write("ECHO " + line); err != nil {
-		return err
+	if command == "ECHO" {
+		// echo
+		if err := session.Write("ECHO " + strings.Replace(line, "ECHO ", "", 1)); err != nil {
+			return err
+		}
+		return nil
+	} else if command == redisAddToSortedSetCommand {
+		// add to series
+		log.Printf("zadd %+v", tokens)
+		return session.Write(successMessage)
+	} else {
+		// command not found
+		return session.WriteErrMessage(errors.New(fmt.Sprintf("command %s not found", command)))
 	}
-
-	return nil
 }
 
 func (session *Session) SetWriter(writer tel.Writer) {
 	session.writer = writer
 }
 
+func (session *Session) WriteErrMessage(err error) error {
+	return session.Write(errorMessage + " " + err.Error())
+}
+
 func (session *Session) Write(s string) error {
-	if !strings.HasSuffix(s, "\n") {
-		s = s + "\n"
+	s = strings.TrimRight(s, "\r\n")
+	if !strings.HasSuffix(s, "\r\n") {
+		s = s + "\r\n"
 	}
+	log.Printf("telnet send %s", s)
 	b := []byte(s)
 	if nWritten, err := oi.LongWrite(session.writer, b); err != nil || int64(len(b)) != nWritten {
 		return err
@@ -69,6 +109,7 @@ func (session *Session) Write(s string) error {
 func NewSession(instance *Instance) *Session {
 	return &Session{
 		instance: instance,
+		mode:     ModePlain,
 	}
 }
 
