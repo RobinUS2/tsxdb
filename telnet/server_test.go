@@ -1,13 +1,23 @@
 package telnet_test
 
 import (
-	"bytes"
+	"errors"
 	"github.com/RobinUS2/tsxdb/telnet"
 	"io"
-	"log"
 	"math"
+	"strings"
 	"testing"
+	"time"
 )
+
+type MockWriter struct {
+	output chan string
+}
+
+func (m *MockWriter) Write(b []byte) (int, error) {
+	m.output <- string(b)
+	return len(b), nil
+}
 
 type MockReader struct {
 	data     chan byte
@@ -19,10 +29,14 @@ func (m *MockReader) Read(x []byte) (int, error) {
 	cn := len(m.data)
 	n := int(math.Min(float64(xn), float64(cn)))
 	if n < 1 {
-		<-m.shutdown
-
-		// empty
-		return 0, io.EOF
+		select {
+		case <-m.shutdown:
+			// done
+			return 0, io.EOF
+		case <-time.After(50 * time.Millisecond):
+			// try again
+			return m.Read(x)
+		}
 	}
 
 	for i := 0; i < n; i++ {
@@ -37,27 +51,87 @@ func TestInstance_ServeTELNET(t *testing.T) {
 	o := telnet.NewOpts()
 	o.AuthToken = "verySecure"
 	instance := telnet.New(o)
-	w := &bytes.Buffer{}
+	w := &MockWriter{
+		output: make(chan string, 1),
+	}
 	r := &MockReader{
 		data:     make(chan byte, 100),
 		shutdown: make(chan bool, 1),
 	}
+	mustBeError := func(s string) error {
+		if !strings.HasPrefix(s, "-ERR") {
+			return errors.New("should be error")
+		}
+		return nil
+	}
+	mustBeOk := func(s string) error {
+		if strings.TrimSpace(s) != "+OK" {
+			return errors.New("should be +OK")
+		}
+		return nil
+	}
+	tests := []*test{
+		{
+			cmd:          "bla",
+			validationFn: mustBeError,
+		},
+		{
+			cmd:          "bla bla",
+			validationFn: mustBeError,
+		},
+		{
+			cmd:          "auth wrong",
+			validationFn: mustBeError,
+		},
+		{
+			cmd:          "auth verySecure",
+			validationFn: mustBeOk,
+		},
+		{
+			cmd:          "bla",
+			validationFn: mustBeError,
+		},
+		{
+			cmd:          "bla bla",
+			validationFn: mustBeError,
+		},
+		{
+			cmd: "ECHO bla",
+			validationFn: func(s string) error {
+				if strings.TrimSpace(s) != "-ERR bla" {
+					return errors.New("wrong")
+				}
+				return nil
+			},
+		},
+		{
+			cmd:          "ZADD testSeries 1558110305 10.0",
+			validationFn: mustBeOk,
+		},
+	}
+	testI := 0
+	var currentTest *test
+	nextTest := func() {
+		if testI > len(tests)-1 {
+			// done
+			r.shutdown <- true
+			return
+		}
+		currentTest = tests[testI]
+		testI += 1 // increment to next test
+		bytesToChan([]byte(currentTest.cmd+"\r\n"), r.data)
+	}
+	nextTest() // start it off
+
 	go func() {
 		for {
-			r, _ := w.ReadByte()
-			if r > 0 {
-				log.Printf("read %d %s", r, string(byte(r)))
+			outLine := <-w.output
+			if err := currentTest.validate(outLine); err != nil {
+				t.Error(currentTest, outLine, err)
 			}
+			nextTest()
 		}
 	}()
-	bytesToChan([]byte("bla\r\n"), r.data)
-	bytesToChan([]byte("bla bla\r\n"), r.data)
-	bytesToChan([]byte("auth wrong\r\n"), r.data)
-	bytesToChan([]byte("auth verySecure\r\n"), r.data)
-	bytesToChan([]byte("bla\r\n"), r.data)
-	bytesToChan([]byte("bla bla\r\n"), r.data)
-	bytesToChan([]byte("ECHO bla\r\n"), r.data)
-	bytesToChan([]byte("ZADD 1234 10.0\r\n"), r.data)
 	instance.Serve(w, r)
 }
 
@@ -65,4 +139,13 @@ func bytesToChan(line []byte, c chan byte) {
 	for _, b := range line {
 		c <- b
 	}
+}
+
+type test struct {
+	cmd          string
+	validationFn func(s string) error
+}
+
+func (test *test) validate(s string) error {
+	return test.validationFn(s)
 }
