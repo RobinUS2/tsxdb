@@ -1,11 +1,13 @@
 package telnet
 
 import (
-	"errors"
 	"fmt"
+	"github.com/RobinUS2/tsxdb/client"
+	"github.com/pkg/errors"
 	"github.com/reiver/go-oi"
 	tel "github.com/reiver/go-telnet"
 	"log"
+	"strconv"
 	"strings"
 )
 
@@ -23,6 +25,7 @@ type Session struct {
 	writer        tel.Writer
 	authenticated bool
 	mode          Mode
+	client        *client.Instance
 }
 
 func (session *Session) SetMode(mode Mode) {
@@ -46,11 +49,26 @@ func (session *Session) Handle(typedLine InputLine) error {
 		if len(tokens) < 2 {
 			return session.WriteErrMessage(errors.New("missing auth token"))
 		}
-		// @todo actually execute over the write to the server (both local check + server)
+
+		// first check local
 		token := tokens[1]
 		if token != session.instance.opts.AuthToken {
 			return session.WriteErrMessage(errors.New("invalid auth token"))
 		}
+
+		// real remote auth
+		clientOpts := client.NewOpts()
+		clientOpts.AuthToken = token
+		clientOpts.ListenHost = session.instance.opts.ServerHost
+		clientOpts.ListenPort = session.instance.opts.ServerPort
+		session.client = client.New(clientOpts)
+
+		// this verifies auth with the server
+		_, err := session.client.GetConnection()
+		if err != nil {
+			return errors.Wrap(err, "fail to get connection")
+		}
+
 		// good
 		session.authenticated = true
 
@@ -73,8 +91,17 @@ func (session *Session) Handle(typedLine InputLine) error {
 		// echo, as error, since redis else can't handle it
 		return session.WriteErrMessage(errors.New(strings.Replace(line, "ECHO ", "", 1)))
 	} else if command == redisAddToSortedSetCommand {
-		// add to series
-		log.Printf("zadd %+v", tokens)
+		// add to serie
+		// zadd mySeries 23456789 10.0
+		//log.Printf("zadd %+v", tokens)
+		seriesName := tokens[1]
+		ts, _ := strconv.ParseUint(tokens[2], 10, 64)
+		val, _ := strconv.ParseFloat(tokens[3], 64)
+		series := session.client.Series(seriesName)
+		res := series.Write(ts, val)
+		if res.Error != nil {
+			return res.Error
+		}
 		return session.Write(successMessage)
 	} else {
 		// command not found

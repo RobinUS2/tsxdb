@@ -18,8 +18,8 @@ replace github.com/RobinUS2/tsxdb/telnet => ../telnet
 
 require (
 	github.com/RobinUS2/tsxdb/rpc v0.0.0-20190513114607-96dd167a5920
-	github.com/RobinUS2/tsxdb/telnet v0.0.0-00010101000000-000000000000
-	github.com/RobinUS2/tsxdb/tools v0.0.0-00010101000000-000000000000
+	github.com/RobinUS2/tsxdb/telnet v0.0.0-20190517163515-dd67f46aab79
+	github.com/RobinUS2/tsxdb/tools v0.0.0-20190517163515-dd67f46aab79
 	github.com/bsm/redis-lock v8.0.0+incompatible
 	github.com/go-redis/redis v6.15.2+incompatible
 	github.com/pkg/errors v0.8.1

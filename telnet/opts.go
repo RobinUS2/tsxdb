@@ -1,9 +1,11 @@
 package telnet
 
 type Opts struct {
-	Host      string
-	Port      int
-	AuthToken string
+	Host       string
+	Port       int
+	AuthToken  string
+	ServerHost string
+	ServerPort int
 }
 
 func NewOpts() *Opts {

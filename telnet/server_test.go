@@ -2,6 +2,7 @@ package telnet_test
 
 import (
 	"errors"
+	"github.com/RobinUS2/tsxdb/server"
 	"github.com/RobinUS2/tsxdb/telnet"
 	"io"
 	"math"
@@ -48,8 +49,22 @@ func (m *MockReader) Read(x []byte) (int, error) {
 }
 
 func TestInstance_ServeTELNET(t *testing.T) {
+	// start server
+	serverOpts := server.NewOpts()
+	serverOpts.AuthToken = "verySecure"
+	s := server.New(serverOpts)
+	if err := s.Init(); err != nil {
+		t.Error(err)
+	}
+	if err := s.Start(); err != nil {
+		t.Error(err)
+	}
+
+	// telnet proxy
 	o := telnet.NewOpts()
-	o.AuthToken = "verySecure"
+	o.AuthToken = serverOpts.AuthToken
+	o.ServerPort = serverOpts.ListenPort
+	o.ServerHost = serverOpts.ListenHost
 	instance := telnet.New(o)
 	w := &MockWriter{
 		output: make(chan string, 1),
