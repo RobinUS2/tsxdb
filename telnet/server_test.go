@@ -126,6 +126,10 @@ func TestInstance_ServeTELNET(t *testing.T) {
 			cmd:          "ZADD testSeries 1558110305 10.0",
 			validationFn: mustBeOk,
 		},
+		{
+			cmd:          "ZRANGEBYSCORE testSeries 1558110304 1558110306",
+			validationFn: mustBeOk,
+		},
 	}
 	testI := 0
 	var currentTest *test

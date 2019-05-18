@@ -13,7 +13,8 @@ import (
 
 const successMessage = "+OK"
 const errorMessage = "-ERR"
-const redisAddToSortedSetCommand = "ZADD" // ZADD key [NX|XX] [CH] [INCR] score member [score member ...] https://redis.io/commands/zadd
+const redisAddToSortedSetCommand = "ZADD"              // ZADD key [NX|XX] [CH] [INCR] score member [score member ...] https://redis.io/commands/zadd
+const redisRangeFromSortedSetCommand = "ZRANGEBYSCORE" // ZRANGEBYSCORE key min max [WITHSCORES] [LIMIT offset count] https://redis.io/commands/zrangebyscore
 
 type Mode string
 
@@ -102,6 +103,22 @@ func (session *Session) Handle(typedLine InputLine) error {
 		if res.Error != nil {
 			return res.Error
 		}
+		return session.Write(successMessage)
+	} else if command == redisRangeFromSortedSetCommand {
+		// get from serie
+		// ZRANGEBYSCORE abc -inf +inf should return all values
+		seriesName := tokens[1]
+		from, _ := strconv.ParseUint(tokens[2], 10, 64)
+		to, _ := strconv.ParseUint(tokens[3], 10, 64)
+		series := session.client.Series(seriesName)
+		qb := series.QueryBuilder()
+		qb.From(from)
+		qb.To(to)
+		res := qb.Execute()
+		if res.Error != nil {
+			return res.Error
+		}
+		log.Printf("qres %v", res)
 		return session.Write(successMessage)
 	} else {
 		// command not found
