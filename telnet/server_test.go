@@ -59,6 +59,9 @@ func TestInstance_ServeTELNET(t *testing.T) {
 	if err := s.Start(); err != nil {
 		t.Error(err)
 	}
+	defer func() {
+		_ = s.Shutdown()
+	}()
 
 	// telnet proxy
 	o := telnet.NewOpts()
