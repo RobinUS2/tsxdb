@@ -1,6 +1,7 @@
 package telnet
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/RobinUS2/tsxdb/client"
 	"github.com/pkg/errors"
@@ -96,6 +97,7 @@ func (session *Session) Handle(typedLine InputLine) error {
 		// zadd mySeries 23456789 10.0
 		//log.Printf("zadd %+v", tokens)
 		seriesName := tokens[1]
+		// @todo support multiple values
 		ts, _ := strconv.ParseUint(tokens[2], 10, 64)
 		val, _ := strconv.ParseFloat(tokens[3], 64)
 		series := session.client.Series(seriesName)
@@ -103,13 +105,15 @@ func (session *Session) Handle(typedLine InputLine) error {
 		if res.Error != nil {
 			return res.Error
 		}
-		return session.Write(successMessage)
+		return session.Write(":1")
 	} else if command == redisRangeFromSortedSetCommand {
 		// get from serie
-		// ZRANGEBYSCORE abc -inf +inf should return all values
+		// ZRANGEBYSCORE abc 10 20
+		// @todo ZRANGEBYSCORE abc -inf +inf should return all values
 		seriesName := tokens[1]
 		from, _ := strconv.ParseUint(tokens[2], 10, 64)
 		to, _ := strconv.ParseUint(tokens[3], 10, 64)
+		withScores := strings.Contains(strings.ToUpper(line), "WITHSCORES")
 		series := session.client.Series(seriesName)
 		qb := series.QueryBuilder()
 		qb.From(from)
@@ -118,8 +122,33 @@ func (session *Session) Handle(typedLine InputLine) error {
 		if res.Error != nil {
 			return res.Error
 		}
-		log.Printf("qres %v", res)
-		return session.Write(successMessage)
+		n := len(res.Results)
+		numResults := n
+		if withScores {
+			numResults *= 2
+		}
+		resultBuffer := bytes.Buffer{}
+		// array format https://redis.io/topics/protocol#array-reply, this is also the "humanly readable" telnet format
+		resultBuffer.Write([]byte(fmt.Sprintf("*%d\r\n", numResults)))
+		for ts, val := range res.Results {
+			// val first (score in redis terms)
+			{
+				valStr := fmt.Sprintf("%v", val)
+				valStrLen := len(valStr)
+				resultBuffer.Write([]byte(fmt.Sprintf("$%d\r\n", valStrLen)))
+				resultBuffer.Write([]byte(valStr))
+			}
+
+			// with scores
+			if withScores {
+				valStr := fmt.Sprintf("%v", ts)
+				valStrLen := len(valStr)
+				resultBuffer.Write([]byte("\r\n"))
+				resultBuffer.Write([]byte(fmt.Sprintf("$%d\r\n", valStrLen)))
+				resultBuffer.Write([]byte(valStr))
+			}
+		}
+		return session.Write(resultBuffer.String())
 	} else {
 		// command not found
 		return session.WriteErrMessage(errors.New(fmt.Sprintf("command %s not found", command)))

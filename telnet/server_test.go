@@ -2,6 +2,7 @@ package telnet_test
 
 import (
 	"errors"
+	"fmt"
 	"github.com/RobinUS2/tsxdb/server"
 	"github.com/RobinUS2/tsxdb/telnet"
 	"io"
@@ -88,6 +89,12 @@ func TestInstance_ServeTELNET(t *testing.T) {
 		}
 		return nil
 	}
+	mustBeIntOne := func(s string) error {
+		if strings.TrimSpace(s) != ":1" {
+			return errors.New("should be :1")
+		}
+		return nil
+	}
 	tests := []*test{
 		{
 			cmd:          "bla",
@@ -124,11 +131,37 @@ func TestInstance_ServeTELNET(t *testing.T) {
 		},
 		{
 			cmd:          "ZADD testSeries 1558110305 10.0",
-			validationFn: mustBeOk,
+			validationFn: mustBeIntOne,
 		},
 		{
-			cmd:          "ZRANGEBYSCORE testSeries 1558110304 1558110306",
-			validationFn: mustBeOk,
+			cmd: "ZRANGEBYSCORE testSeries 1558110304 1558110306",
+			validationFn: func(s string) error {
+				const expect = "*1\r\n$2\r\n10"
+				if strings.TrimSpace(s) != expect {
+					return errors.New(fmt.Sprintf("should be %s", expect))
+				}
+				return nil
+			},
+		},
+		{
+			cmd: "ZRANGEBYSCORE testSeries 1558110304 1558110306 withscores",
+			validationFn: func(s string) error {
+				const expect = "*2\r\n$2\r\n10\r\n$10\r\n1558110305"
+				if strings.TrimSpace(s) != expect {
+					return errors.New(fmt.Sprintf("should be %s", expect))
+				}
+				return nil
+			},
+		},
+		{
+			cmd: "ZRANGEBYSCORE testSeries 1558110304 1558110306 WITHSCORES",
+			validationFn: func(s string) error {
+				const expect = "*2\r\n$2\r\n10\r\n$10\r\n1558110305"
+				if strings.TrimSpace(s) != expect {
+					return errors.New(fmt.Sprintf("should be %s", expect))
+				}
+				return nil
+			},
 		},
 	}
 	testI := 0
