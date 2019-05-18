@@ -136,16 +136,15 @@ func (session *Session) Handle(typedLine InputLine) error {
 				valStr := fmt.Sprintf("%v", val)
 				valStrLen := len(valStr)
 				resultBuffer.Write([]byte(fmt.Sprintf("$%d\r\n", valStrLen)))
-				resultBuffer.Write([]byte(valStr))
+				resultBuffer.Write([]byte(valStr + "\r\n"))
 			}
 
 			// with scores
 			if withScores {
 				valStr := fmt.Sprintf("%v", ts)
 				valStrLen := len(valStr)
-				resultBuffer.Write([]byte("\r\n"))
 				resultBuffer.Write([]byte(fmt.Sprintf("$%d\r\n", valStrLen)))
-				resultBuffer.Write([]byte(valStr))
+				resultBuffer.Write([]byte(valStr + "\r\n"))
 			}
 		}
 		return session.Write(resultBuffer.String())

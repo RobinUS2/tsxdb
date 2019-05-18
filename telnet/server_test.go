@@ -163,6 +163,27 @@ func TestInstance_ServeTELNET(t *testing.T) {
 				return nil
 			},
 		},
+		// add second value
+		{
+			cmd:          "ZADD testSeries 1558110306 10.1",
+			validationFn: mustBeIntOne,
+		},
+		// add third value
+		{
+			cmd:          "ZADD testSeries 1558110307 110.5",
+			validationFn: mustBeIntOne,
+		},
+		// get all three without scores
+		{
+			cmd: "ZRANGEBYSCORE testSeries 1558110304 1558110308",
+			validationFn: func(s string) error {
+				const expect = "*3\r\n$2\r\n10\r\n$3\r\n10.1\r\n$5\r\n110.5"
+				if strings.TrimSpace(s) != expect {
+					return errors.New(fmt.Sprintf("should be %s", expect))
+				}
+				return nil
+			},
+		},
 	}
 	testI := 0
 	var currentTest *test

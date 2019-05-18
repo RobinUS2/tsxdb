@@ -83,9 +83,14 @@ func (instance *Instance) Serve(w tel.Writer, r tel.Reader) {
 					continue
 				}
 			}
+			if detectingRedis && line == "$7" {
+				// ignore the length of the "COMMAND" word
+				continue
+			}
 			if detectingRedis && line == "COMMAND" {
 				detectingRedis = false
 				session.SetMode(ModeRedis)
+				session.Write(successMessage)
 				continue
 			}
 
