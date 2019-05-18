@@ -130,6 +130,7 @@ func (session *Session) Handle(typedLine InputLine) error {
 		resultBuffer := bytes.Buffer{}
 		// array format https://redis.io/topics/protocol#array-reply, this is also the "humanly readable" telnet format
 		resultBuffer.Write([]byte(fmt.Sprintf("*%d\r\n", numResults)))
+		// @todo sort results by key
 		for ts, val := range res.Results {
 			// val first (score in redis terms)
 			{

@@ -53,4 +53,5 @@ func (series *Series) Read(q Query) (res QueryResult) {
 type QueryResult struct {
 	Error   error
 	Results map[uint64]float64
+	// @todo support some form of iterator since the results map is not ordered by go design
 }
