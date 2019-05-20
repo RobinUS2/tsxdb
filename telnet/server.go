@@ -111,6 +111,7 @@ func (instance *Instance) Serve(w tel.Writer, r tel.Reader) {
 						panic("first should be *x")
 					}
 				}
+				// @todo later, we could use the length here to immediately read the length (e.g. $7 and read 7 next bytes that may contain []byte("COMMAND") or similar )
 				if strings.HasPrefix(line, "$") {
 					// ignore length markers
 					continue
