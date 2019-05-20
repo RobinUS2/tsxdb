@@ -1,3 +1,8 @@
 #!/bin/bash
 set -e
-go test ./...
+for d in */ ; do
+	echo "$d"
+	cd $d
+	go test -cover -race ./...
+	cd ..
+done
