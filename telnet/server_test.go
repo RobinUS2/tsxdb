@@ -58,7 +58,7 @@ func TestInstance_ServeTELNET(t *testing.T) {
 		t.Error(err)
 	}
 	if err := s.Start(); err != nil {
-		t.Error(err)
+		t.Fatal("server could not be started", err)
 	}
 	defer func() {
 		_ = s.Shutdown()
@@ -177,7 +177,7 @@ func TestInstance_ServeTELNET(t *testing.T) {
 		{
 			cmd: "ZRANGEBYSCORE testSeries 1558110304 1558110308",
 			validationFn: func(s string) error {
-				const expect = "*3\r\n$2\r\n10\r\n$3\r\n10.1\r\n$5\r\n110.5"
+				const expect = "*3\r\n$2\r\n10\r\n$4\r\n10.1\r\n$5\r\n110.5"
 				if strings.TrimSpace(s) != expect {
 					return errors.New(fmt.Sprintf("should be %s", expect))
 				}

@@ -15,7 +15,9 @@ import (
 const successMessage = "+OK"
 const errorMessage = "-ERR"
 const redisAddToSortedSetCommand = "ZADD"              // ZADD key [NX|XX] [CH] [INCR] score member [score member ...] https://redis.io/commands/zadd
+const redisRemoveFromSortedSetCommand = "ZREM"         // ZREM key member [member ...] https://redis.io/commands/zrem
 const redisRangeFromSortedSetCommand = "ZRANGEBYSCORE" // ZRANGEBYSCORE key min max [WITHSCORES] [LIMIT offset count] https://redis.io/commands/zrangebyscore
+const redisExistsCommand = "EXISTS"                    // EXISTS key [key ...] https://redis.io/commands/exists
 
 type Mode string
 
@@ -100,12 +102,21 @@ func (session *Session) Handle(typedLine InputLine) error {
 		// @todo support multiple values
 		ts, _ := strconv.ParseUint(tokens[2], 10, 64)
 		val, _ := strconv.ParseFloat(tokens[3], 64)
+		if len(tokens) > 4 {
+			return session.WriteErrMessage(errors.New("ZADD only supports 1 key-value pair for now"))
+		}
 		series := session.client.Series(seriesName)
 		res := series.Write(ts, val)
 		if res.Error != nil {
 			return res.Error
 		}
 		return session.Write(":1")
+	} else if command == redisExistsCommand {
+		// existing
+		return session.WriteErrMessage(errors.New("EXISTS not yet implemented"))
+	} else if command == redisRemoveFromSortedSetCommand {
+		// remove
+		return session.WriteErrMessage(errors.New("ZREM not yet implemented"))
 	} else if command == redisRangeFromSortedSetCommand {
 		// get from serie
 		// ZRANGEBYSCORE abc 10 20
@@ -130,8 +141,9 @@ func (session *Session) Handle(typedLine InputLine) error {
 		resultBuffer := bytes.Buffer{}
 		// array format https://redis.io/topics/protocol#array-reply, this is also the "humanly readable" telnet format
 		resultBuffer.Write([]byte(fmt.Sprintf("*%d\r\n", numResults)))
-		// @todo sort results by key
-		for ts, val := range res.Results {
+		resultIterator := res.Iterator()
+		for resultIterator.Next() {
+			ts, val := resultIterator.Value()
 			// val first (score in redis terms)
 			{
 				valStr := fmt.Sprintf("%v", val)
