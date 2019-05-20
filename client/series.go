@@ -21,7 +21,7 @@ func (series *Series) Namespace() int {
 	return series.namespace
 }
 
-func (series Series) Tags() []string {
+func (series *Series) Tags() []string {
 	return series.tags
 }
 
