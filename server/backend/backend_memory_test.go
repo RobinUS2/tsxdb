@@ -3,7 +3,9 @@ package backend_test
 import (
 	"github.com/RobinUS2/tsxdb/rpc/types"
 	"github.com/RobinUS2/tsxdb/server/backend"
+	"math/rand"
 	"testing"
+	"time"
 )
 
 func TestMemoryBackend(t *testing.T) {
@@ -57,6 +59,49 @@ func TestMemoryBackend(t *testing.T) {
 		if firstResult.SeriesCreateIdentifier != 12345 {
 			t.Error("should have same reference number")
 		}
+	}
+
+	// simple write
+	const seriesId = 1
+	now := uint64(time.Now().Unix() * 1000)
+	writeVal := rand.Float64()
+	{
+		if err := b.Write(backend.ContextWrite{
+			Context: backend.Context{
+				Namespace: 5,
+				Series:    seriesId,
+			},
+		}, []uint64{now}, []float64{writeVal}); err != nil {
+			t.Error(err)
+		}
+	}
+
+	// simple read
+	{
+		res := b.Read(backend.ContextRead{
+			Context: backend.Context{
+				Series:    seriesId,
+				Namespace: 5,
+			},
+			From: now - (86400 * 1000 * 2),
+			To:   now + (86400 * 1000 * 1),
+		})
+		if res.Error != nil {
+			t.Error(res.Error)
+		}
+		var ts uint64
+		var val float64
+		for ts, val = range res.Results {
+			if ts == now {
+				break
+			}
+		}
+		if now != ts {
+			t.Error("timestamp mismatch", now, ts)
+		}
+		CompareFloat(writeVal, val, floatTolerance, func() {
+			t.Error("value mismatch", writeVal, val)
+		})
 	}
 
 	// search by name
