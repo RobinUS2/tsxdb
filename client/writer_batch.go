@@ -74,7 +74,7 @@ func (batch *BatchWriter) Execute() (res WriteResult) {
 
 	// validate num persisted
 	res.NumPersisted = response.Num
-	if res.NumPersisted != 1 {
+	if res.NumPersisted != len(batch.items) {
 		res.Error = errClientValidationMismatchSent
 		return
 	}

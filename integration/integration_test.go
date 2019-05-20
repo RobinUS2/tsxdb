@@ -5,6 +5,7 @@ import (
 	"github.com/RobinUS2/tsxdb/client"
 	"github.com/RobinUS2/tsxdb/integration"
 	"github.com/RobinUS2/tsxdb/server"
+	"math/rand"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -260,6 +261,43 @@ func TestInitSeriesPerformance(t *testing.T) {
 	tookMsEach := tookMs / float64(i)
 	perSecond := 1000.0 / tookMsEach
 	t.Logf("init series (+1 write) avg time %f.2ms (%d iterations - %.0f/second)", tookMsEach, i, perSecond)
+
+	c.Close()
+	_ = s.Shutdown()
+}
+
+func TestBatchWritePerformance(t *testing.T) {
+	// start server
+	s := NewTestServer(true, true)
+	c := NewTestClient(s)
+	startTime := time.Now()
+	const minTime = 1 * time.Second
+	const minIters = 100
+	const batchSize = 50
+	series := c.Series("benchmarkSeriesWriteBatch")
+	var i int
+	for i = 0; i < 1000*1000; i++ {
+		b := c.NewBatchWriter()
+		// batches
+		for j := 0; j < batchSize; j++ {
+			if err := b.AddToBatch(series, rand.Uint64(), rand.Float64()); err != nil {
+				t.Error(err)
+			}
+		}
+		result := b.Execute()
+		if result.Error != nil {
+			t.Error(result.Error)
+		}
+		if i > minIters && i%100 == 0 {
+			if time.Since(startTime).Seconds() > minTime.Seconds() {
+				break
+			}
+		}
+	}
+	tookMs := float64(time.Since(startTime).Nanoseconds()) / 1000000.0
+	tookMsEach := tookMs / float64(i*batchSize)
+	perSecond := 1000.0 / tookMsEach
+	t.Logf("write avg time %f.2ms (%d iterations - %.0f/second)", tookMsEach, i, perSecond)
 
 	c.Close()
 	_ = s.Shutdown()
