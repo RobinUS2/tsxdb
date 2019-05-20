@@ -89,10 +89,7 @@ func (iter *QueryResultIterator) Reset() {
 
 func (iter *QueryResultIterator) Next() bool {
 	iter.current++
-	if iter.current >= iter.size {
-		return false
-	}
-	return true
+	return iter.current < iter.size
 }
 
 func (iter *QueryResultIterator) Value() (uint64, float64) {

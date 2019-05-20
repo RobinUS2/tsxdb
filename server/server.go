@@ -80,7 +80,7 @@ func (instance *Instance) Start() (err error) {
 	// catch runtime errors
 	defer func() {
 		if r := recover(); r != nil {
-			err = errors.New(fmt.Sprintf("server runtime error %s", r))
+			err = fmt.Errorf("server runtime error %s", r)
 		}
 	}()
 

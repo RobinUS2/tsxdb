@@ -138,7 +138,7 @@ func TestInstance_ServeTELNET(t *testing.T) {
 			validationFn: func(s string) error {
 				const expect = "*1\r\n$2\r\n10"
 				if strings.TrimSpace(s) != expect {
-					return errors.New(fmt.Sprintf("should be %s", expect))
+					return fmt.Errorf("should be %s", expect)
 				}
 				return nil
 			},
@@ -148,7 +148,7 @@ func TestInstance_ServeTELNET(t *testing.T) {
 			validationFn: func(s string) error {
 				const expect = "*2\r\n$2\r\n10\r\n$10\r\n1558110305"
 				if strings.TrimSpace(s) != expect {
-					return errors.New(fmt.Sprintf("should be %s", expect))
+					return fmt.Errorf("should be %s", expect)
 				}
 				return nil
 			},
@@ -158,7 +158,7 @@ func TestInstance_ServeTELNET(t *testing.T) {
 			validationFn: func(s string) error {
 				const expect = "*2\r\n$2\r\n10\r\n$10\r\n1558110305"
 				if strings.TrimSpace(s) != expect {
-					return errors.New(fmt.Sprintf("should be %s", expect))
+					return fmt.Errorf("should be %s", expect)
 				}
 				return nil
 			},
@@ -179,7 +179,7 @@ func TestInstance_ServeTELNET(t *testing.T) {
 			validationFn: func(s string) error {
 				const expect = "*3\r\n$2\r\n10\r\n$4\r\n10.1\r\n$5\r\n110.5"
 				if strings.TrimSpace(s) != expect {
-					return errors.New(fmt.Sprintf("should be %s", expect))
+					return fmt.Errorf("should be %s", expect)
 				}
 				return nil
 			},

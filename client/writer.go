@@ -5,7 +5,7 @@ import (
 	"github.com/RobinUS2/tsxdb/rpc/types"
 )
 
-var clientValidationErrMismatchSent = errors.New("mismatch between expected written values and received")
+var errClientValidationMismatchSent = errors.New("mismatch between expected written values and received")
 
 func (series *Series) Write(ts uint64, v float64) (res WriteResult) {
 	// get
@@ -51,7 +51,7 @@ func (series *Series) Write(ts uint64, v float64) (res WriteResult) {
 	// validate num persisted
 	res.NumPersisted = response.Num
 	if res.NumPersisted != 1 {
-		res.Error = clientValidationErrMismatchSent
+		res.Error = errClientValidationMismatchSent
 		return
 	}
 

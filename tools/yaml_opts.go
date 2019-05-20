@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
-	"log"
 	"strings"
 )
 
@@ -17,12 +16,12 @@ func ReadYamlFileInPath(configPathsStr string, out interface{}) error {
 			continue
 		}
 		if err := ReadYamlFile(configPath, out); err != nil {
-			log.Fatalf("unable to read config in %s: %s", configPath, err)
+			return fmt.Errorf("unable to read config in %s: %s", configPath, err)
 		}
 		configRead = true
 	}
 	if !configRead {
-		return errors.New(fmt.Sprintf("no config files found in %v", configPaths))
+		return fmt.Errorf("no config files found in %v", configPaths)
 	}
 	return nil
 }

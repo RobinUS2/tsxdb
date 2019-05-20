@@ -55,7 +55,7 @@ func (endpoint *WriterEndpoint) Execute(args *types.WriteRequest, resp *types.Wr
 		}
 
 		// write
-		writeContext := backend.ContextWrite{Context: c.Context}
+		writeContext := backend.ContextWrite(c)
 		err = backendInstance.Write(writeContext, batchItem.Times, batchItem.Values)
 		if err != nil {
 			e := types.RpcError(err.Error())
