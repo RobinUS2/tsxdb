@@ -9,16 +9,17 @@ import (
 
 // init series metadata on the server side (only transmits names, tags, etc. once instead of each time)
 
-func (series *Series) Init(conn *ManagedConnection) (err error) {
+func (series *Series) Init(conn *ManagedConnection) (id uint64, err error) {
 	// fast path
-	if atomic.LoadUint64(&series.id) > 0 {
+	id = atomic.LoadUint64(&series.id)
+	if id > 0 {
 		// already initialised
-		return nil
+		return id, nil
 	}
 
 	// verify connection
 	if conn == nil {
-		return errors.New("missing connection")
+		return 0, errors.New("missing connection")
 	}
 
 	// max 1 init at a time
@@ -28,7 +29,7 @@ func (series *Series) Init(conn *ManagedConnection) (err error) {
 	// check again already sent? (could be done during waiting of the lock)
 	if atomic.LoadUint64(&series.id) > 0 {
 		// already initialised
-		return nil
+		return 0, nil
 	}
 
 	// request
@@ -47,14 +48,14 @@ func (series *Series) Init(conn *ManagedConnection) (err error) {
 	// execute
 	var response *types.SeriesMetadataResponse
 	if err := conn.client.Call(types.EndpointSeriesMetadata.String()+"."+types.MethodName, request, &response); err != nil {
-		return err
+		return 0, err
 	}
 	if response.Error != nil {
-		return response.Error.Error()
+		return 0, response.Error.Error()
 	}
 
 	// store id
 	atomic.StoreUint64(&series.id, response.Id)
 
-	return nil
+	return series.id, nil
 }
