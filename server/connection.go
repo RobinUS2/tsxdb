@@ -10,15 +10,15 @@ import (
 )
 
 func (instance *Instance) StartListening() error {
-	var err error
-	instance.rpcListener, err = net.Listen("tcp", fmt.Sprintf(":%d", instance.opts.ListenPort))
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", instance.opts.ListenPort))
 	if err != nil {
 		return err
 	}
+	instance.SetRpcListener(listener)
 
 	go func() {
 		for {
-			conn, err := instance.rpcListener.Accept()
+			conn, err := listener.Accept()
 			isShuttingDown := atomic.LoadInt32(&instance.shuttingDown) == 1
 			if err != nil {
 				if !isShuttingDown {
@@ -48,11 +48,12 @@ var closeMux sync.RWMutex
 func (instance *Instance) closeRpc() error {
 	closeMux.Lock()
 	defer closeMux.Unlock()
-	if instance.rpcListener != nil {
-		if err := instance.rpcListener.Close(); err != nil {
+	listener := instance.RpcListener()
+	if listener != nil {
+		if err := listener.Close(); err != nil {
 			return err
 		}
-		instance.rpcListener = nil
+		instance.SetRpcListener(nil)
 	}
 	return nil
 }

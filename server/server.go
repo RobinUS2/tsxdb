@@ -20,7 +20,6 @@ type Instance struct {
 	rpc             *rpc.Server
 	backendSelector *backend.Selector
 	rollupReader    *rollup.Reader
-	rpcListener     net.Listener
 	shuttingDown    int32 // set to true during shutdown
 
 	pendingRequests int64
@@ -28,7 +27,23 @@ type Instance struct {
 	sessionTokens    map[int][]byte // session id => secret
 	sessionTokensMux sync.RWMutex
 
+	rpcListener    net.Listener
+	rpcListenerMux sync.RWMutex
+
 	metaStore backend.IMetadata
+}
+
+func (instance *Instance) RpcListener() net.Listener {
+	instance.rpcListenerMux.RLock()
+	x := instance.rpcListener
+	instance.rpcListenerMux.RUnlock()
+	return x
+}
+
+func (instance *Instance) SetRpcListener(rpcListener net.Listener) {
+	instance.rpcListenerMux.Lock()
+	instance.rpcListener = rpcListener
+	instance.rpcListenerMux.Unlock()
 }
 
 func (instance *Instance) Opts() *Opts {
@@ -114,7 +129,7 @@ func (instance *Instance) Shutdown() error {
 	atomic.StoreInt32(&instance.shuttingDown, 1)
 
 	// poll RPC listener shutdown
-	if instance.rpcListener != nil {
+	if instance.RpcListener() != nil {
 		// pending
 		v := atomic.LoadInt64(&instance.pendingRequests)
 		if v > 0 {
@@ -122,7 +137,7 @@ func (instance *Instance) Shutdown() error {
 			for i := 0; i < 50; i++ {
 				time.Sleep(100 * time.Millisecond)
 				v := atomic.LoadInt64(&instance.pendingRequests)
-				if instance.rpcListener == nil || v == 0 {
+				if instance.RpcListener() == nil || v == 0 {
 					break
 				}
 			}
