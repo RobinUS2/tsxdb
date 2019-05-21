@@ -1,6 +1,9 @@
 package client
 
-import "github.com/RobinUS2/tsxdb/rpc/types"
+import (
+	"github.com/RobinUS2/tsxdb/rpc/types"
+	"github.com/pkg/errors"
+)
 
 type BatchWriter struct {
 	client *Instance
@@ -74,8 +77,9 @@ func (batch *BatchWriter) Execute() (res WriteResult) {
 
 	// validate num persisted
 	res.NumPersisted = response.Num
-	if res.NumPersisted != len(batch.items) {
-		res.Error = errClientValidationMismatchSent
+	expected := len(batch.items)
+	if res.NumPersisted != expected {
+		res.Error = errors.Wrapf(errClientValidationMismatchSent, "expected %d was %d", len(batch.items), res.NumPersisted)
 		return
 	}
 
