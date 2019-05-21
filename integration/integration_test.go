@@ -44,6 +44,27 @@ func TestNew(t *testing.T) {
 		}
 	}
 
+	// batch
+	{
+		b := c.NewBatchWriter()
+		if err := b.AddToBatch(c.Series("a"), 12345, 10.0); err != nil {
+			t.Error(err)
+		}
+		if err := b.AddToBatch(c.Series("b"), 54321, 11.1); err != nil {
+			t.Error(err)
+		}
+		if err := b.AddToBatch(c.Series("a"), 12345, 22.2); err != nil {
+			t.Error(err)
+		}
+		result := b.Execute()
+		if result.Error != nil {
+			t.Error(result.Error)
+		}
+		if result.NumPersisted != 3 {
+			t.Error(result.NumPersisted)
+		}
+	}
+
 	// read
 	{
 		result := series.QueryBuilder().From(now - oneMinute).To(now + oneMinute).Execute()
