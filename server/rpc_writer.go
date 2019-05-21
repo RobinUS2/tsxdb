@@ -25,9 +25,10 @@ func (endpoint *WriterEndpoint) Execute(args *types.WriteRequest, resp *types.Wr
 		return nil
 	}
 
-	var numTimes int
+	var numTimesTotal int
 	for _, batchItem := range args.Series {
-		numTimes += len(batchItem.Times)
+		numTimes := len(batchItem.Times)
+		numTimesTotal += numTimes
 		numValues := len(batchItem.Values)
 
 		// basic validation
@@ -63,7 +64,7 @@ func (endpoint *WriterEndpoint) Execute(args *types.WriteRequest, resp *types.Wr
 			return nil
 		}
 	}
-	resp.Num = numTimes
+	resp.Num = numTimesTotal
 
 	return nil
 }
