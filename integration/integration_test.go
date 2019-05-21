@@ -273,7 +273,7 @@ func TestBatchWritePerformance(t *testing.T) {
 	startTime := time.Now()
 	const minTime = 1 * time.Second
 	const minIters = 100
-	const batchSize = 50
+	const batchSize = 1000 // tuning this number increases throughput, seems to max out at around 100K value with throughput of 1.7MM/sec on 1 core @ MacBook Pro Feb '18, although that is not realistic so we leave it at 1000 for now
 	series := c.Series("benchmarkSeriesWriteBatch")
 	var i int
 	for i = 0; i < 1000*1000; i++ {
