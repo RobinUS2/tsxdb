@@ -6,23 +6,13 @@ import (
 	"math/rand"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 const maxPaddingSize = 0.1
 const memoryType = TypeBackend("memory")
 
 // @todo partition by timestamp!!!
-
-type Namespace int
-type Series uint64
-type Timestamp float64
-
-type SeriesMetadata struct {
-	Id        Series
-	Namespace Namespace
-	Name      string
-	Tags      []string
-}
 
 type MemoryBackend struct {
 	// data
@@ -85,8 +75,31 @@ func (instance *MemoryBackend) __notLockedInitMaps(context Context, autoCreate b
 		}
 		instance.data[namespace][series] = make(map[Timestamp]float64)
 	}
+
+	// data exists, fetch metadata
+	meta := instance.series[Series(context.Series)]
+	if meta == nil {
+		panic("missing metadata")
+	}
+
+	// ttl of series
+	if meta.TtlExpire > 0 {
+		nowSeconds := nowSeconds()
+		if meta.TtlExpire < nowSeconds {
+			// expired
+			// @todo schedule for removal, should not happen in backend memory logic, rather a level up the abstraction
+			return false
+		}
+	}
+
 	return true
 }
+
+func nowSeconds() uint64 {
+	return uint64(time.Now().Unix())
+}
+
+var ErrNoDataFound = errors.New("no data found")
 
 func (instance *MemoryBackend) Read(context ContextRead) (res ReadResult) {
 	namespace := Namespace(context.Namespace)
@@ -94,7 +107,7 @@ func (instance *MemoryBackend) Read(context ContextRead) (res ReadResult) {
 	instance.dataMux.RLock()
 	if !instance.__notLockedInitMaps(context.Context, false) {
 		// not available in the store
-		res.Error = errors.New("no data found")
+		res.Error = ErrNoDataFound
 		instance.dataMux.RUnlock()
 		return
 	}
@@ -177,11 +190,16 @@ func (instance *MemoryBackend) CreateOrUpdateSeries(create *CreateSeries) (resul
 			id := atomic.AddUint64(&instance.seriesIdCounter, 1)
 
 			// add to memory
+			var ttlExpire uint64
+			if serie.Ttl > 0 {
+				ttlExpire = nowSeconds() + uint64(serie.Ttl)
+			}
 			instance.series[Series(id)] = &SeriesMetadata{
 				Namespace: Namespace(serie.Namespace),
 				Name:      serie.Name,
 				Id:        Series(id),
 				Tags:      serie.Tags,
+				TtlExpire: ttlExpire,
 			}
 
 			// result

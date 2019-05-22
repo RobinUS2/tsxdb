@@ -39,6 +39,7 @@ func (series *Series) Init(conn *ManagedConnection) (id uint64, err error) {
 				Namespace: series.namespace,
 				Tags:      series.tags,
 				Name:      series.name,
+				Ttl:       series.ttl,
 			},
 			SeriesCreateIdentifier: types.SeriesCreateIdentifier(tools.RandomInsecureIdentifier()),
 		},

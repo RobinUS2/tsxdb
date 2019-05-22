@@ -94,15 +94,24 @@ func (instance *RedisBackend) getKeysInRange(ctx ContextRead) []string {
 }
 
 func (instance *RedisBackend) Read(context ContextRead) (res ReadResult) {
-	keys := instance.getKeysInRange(context)
 	conn := instance.getConnection(Namespace(context.Namespace))
-	resultMap := make(map[uint64]float64)
+
+	// meta
+	meta, err := instance.getMetadata(Namespace(context.Namespace), context.Series)
+	if err != nil || meta.Id < 1 {
+		res.Error = errors.Wrap(err, "missing metadata")
+		return
+	}
+
+	// read
+	keys := instance.getKeysInRange(context)
+	var resultMap map[uint64]float64
 	for _, key := range keys {
 		read := conn.ZRangeByScoreWithScores(key, redis.ZRangeBy{
 			Min: FloatToString(float64(context.From)),
 			Max: FloatToString(float64(context.To)),
 		})
-		if read.Err() != nil {
+		if filterNilErr(read.Err()) != nil {
 			res.Error = read.Err()
 			return
 		}
@@ -115,8 +124,16 @@ func (instance *RedisBackend) Read(context ContextRead) (res ReadResult) {
 				res.Error = err
 				return
 			}
+			if resultMap == nil {
+				resultMap = make(map[uint64]float64)
+			}
 			resultMap[uint64(value.Score)] = floatValue
 		}
+	}
+	// no data?
+	if resultMap == nil {
+		res.Error = ErrNoDataFound
+		return
 	}
 	res.Results = resultMap
 
@@ -194,24 +211,40 @@ func (instance *RedisBackend) createOrUpdateSeries(identifier types.SeriesCreate
 		result.Id = id
 	}
 
-	// metadata persist (just overwrite for now)
-	{
-		metaKey := instance.getSeriesMetaKey(Namespace(series.Namespace), result.Id)
-		j, err := json.Marshal(series.SeriesMetadata)
-		if err != nil {
-			panic(err)
-		}
-		if res := conn.Set(metaKey, string(j), 0); res.Err() != nil {
-			return result, res.Err()
-		}
-	}
+	// only store metadata during creation for now
+	if result.New {
+		// metadata persist (just overwrite for now)
+		{
+			metaKey := instance.getSeriesMetaKey(Namespace(series.Namespace), result.Id)
 
-	// persist tags
-	if series.Tags != nil {
-		for _, tag := range series.Tags {
-			tagKey := instance.getTagKey(Namespace(series.Namespace), tag)
-			if res := conn.SAdd(tagKey, result.Id); res.Err() != nil {
+			// convert to server version
+			var ttlExpire uint64
+			if series.Ttl > 0 {
+				ttlExpire = nowSeconds() + uint64(series.Ttl)
+			}
+			data := SeriesMetadata{
+				Name:      series.Name,
+				Namespace: Namespace(series.Namespace),
+				Tags:      series.Tags,
+				Id:        Series(result.Id),
+				TtlExpire: ttlExpire,
+			}
+			j, err := json.Marshal(data)
+			if err != nil {
+				panic(err)
+			}
+			if res := conn.Set(metaKey, string(j), 0); res.Err() != nil {
 				return result, res.Err()
+			}
+		}
+
+		// persist tags
+		if series.Tags != nil {
+			for _, tag := range series.Tags {
+				tagKey := instance.getTagKey(Namespace(series.Namespace), tag)
+				if res := conn.SAdd(tagKey, result.Id); res.Err() != nil {
+					return result, res.Err()
+				}
 			}
 		}
 	}
@@ -312,18 +345,25 @@ func (instance *RedisBackend) getMetadata(namespace Namespace, id uint64) (resul
 
 	res := conn.Get(metaKey)
 	if res.Err() != nil {
-		return result, res.Err()
+		return result, errors.Wrapf(res.Err(), "series %d", id)
 	}
 
-	var data types.SeriesMetadata
+	var data SeriesMetadata
 	if err := json.Unmarshal([]byte(res.Val()), &data); err != nil {
 		return result, err
 	}
 
-	result.Namespace = Namespace(data.Namespace)
-	result.Name = data.Name
-	result.Id = Series(id)
-	result.Tags = data.Tags
+	// ttl of series
+	if data.TtlExpire > 0 {
+		nowSeconds := nowSeconds()
+		if data.TtlExpire < nowSeconds {
+			// expired
+			// @todo schedule for removal, should not happen in backend memory logic, rather a level up the abstraction
+			err = errors.Wrapf(ErrNoDataFound, "series %d expired", id)
+			return
+		}
+	}
+	result = data
 
 	return
 }

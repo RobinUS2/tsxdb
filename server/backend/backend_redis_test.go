@@ -6,6 +6,7 @@ import (
 	"github.com/RobinUS2/tsxdb/server/backend"
 	"math"
 	"math/rand"
+	"strings"
 	"testing"
 	"time"
 )
@@ -38,8 +39,9 @@ func TestNewRedisBackendMultiConnection(t *testing.T) {
 				Port: 6379,
 			},
 			backend.Namespace(5): {
-				Addr: "localhost",
-				Port: 6379,
+				Addr:     "localhost",
+				Port:     6379,
+				Database: 5,
 			},
 		},
 	}
@@ -115,14 +117,13 @@ func TestNewRedisBackendMultiConnection(t *testing.T) {
 	}
 
 	// simple write
-	const seriesId = 1
 	now := uint64(time.Now().Unix() * 1000)
 	writeVal := rand.Float64()
 	{
 		if err := b.Write(backend.ContextWrite{
 			Context: backend.Context{
-				Namespace: 5,
-				Series:    seriesId,
+				Namespace: 1,
+				Series:    idFirst,
 			},
 		}, []uint64{now}, []float64{writeVal}); err != nil {
 			t.Error(err)
@@ -133,8 +134,8 @@ func TestNewRedisBackendMultiConnection(t *testing.T) {
 	{
 		res := b.Read(backend.ContextRead{
 			Context: backend.Context{
-				Series:    seriesId,
-				Namespace: 5,
+				Series:    idFirst,
+				Namespace: 1,
 			},
 			From: now - (86400 * 1000 * 2),
 			To:   now + (86400 * 1000 * 1),
@@ -264,6 +265,102 @@ func TestNewRedisBackendMultiConnection(t *testing.T) {
 			t.Error("should be nil")
 		}
 	}
+
+	// TTL expiry on entire series
+	{
+		name := fmt.Sprintf("expiry-series-redis-%d", time.Now().UnixNano())
+		req := &backend.CreateSeries{
+			Series: map[types.SeriesCreateIdentifier]types.SeriesCreateMetadata{
+				1: {
+					SeriesMetadata: types.SeriesMetadata{
+						Name:      name,
+						Namespace: 1,
+						Ttl:       1, // 1 second
+					},
+					SeriesCreateIdentifier: 1,
+				},
+			},
+		}
+
+		// first create
+		var firstResult types.SeriesMetadataResponse
+		{
+			resp := b.CreateOrUpdateSeries(req)
+			if resp == nil {
+				t.Error()
+			}
+			firstResult = resp.Results[1]
+			if firstResult.Id == 0 {
+				t.Error(resp.Results)
+			}
+			if !firstResult.New {
+				t.Error("should be new")
+			}
+		}
+
+		// write
+		now := uint64(time.Now().Unix() * 1000)
+		writeVal := rand.Float64()
+		{
+			if err := b.Write(backend.ContextWrite{
+				Context: backend.Context{
+					Namespace: 1,
+					Series:    firstResult.Id,
+				},
+			}, []uint64{now}, []float64{writeVal}); err != nil {
+				t.Error(err)
+			}
+		}
+
+		// @todo inspect TTL meta
+
+		// read
+		{
+			res := b.Read(backend.ContextRead{
+				Context: backend.Context{
+					Series:    firstResult.Id,
+					Namespace: 1,
+				},
+				From: now - 1,
+				To:   now + 1,
+			})
+			if res.Error != nil {
+				t.Error(res.Error)
+			}
+			var ts uint64
+			var val float64
+			for ts, val = range res.Results {
+				if ts == now {
+					break
+				}
+			}
+			if now != ts {
+				t.Error("timestamp mismatch", now, ts)
+			}
+			CompareFloat(writeVal, val, floatTolerance, func() {
+				t.Error("value mismatch", writeVal, val)
+			})
+		}
+
+		// wait for expiry
+		time.Sleep(2100 * time.Millisecond)
+
+		// read, should be gone
+		{
+			res := b.Read(backend.ContextRead{
+				Context: backend.Context{
+					Series:    firstResult.Id,
+					Namespace: 1,
+				},
+				From: now - 1,
+				To:   now + 1,
+			})
+			if res.Error == nil || !strings.Contains(res.Error.Error(), "no data found") {
+				t.Error(res.Error)
+			}
+		}
+	}
+	// end TTL test
 }
 func CompareFloat(a float64, b float64, tolerance float64, err func()) {
 	if math.Abs(a-b) > tolerance {

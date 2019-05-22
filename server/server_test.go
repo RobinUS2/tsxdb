@@ -63,13 +63,33 @@ func TestNew(t *testing.T) {
 		//log.Printf("%+v", authReply)
 	}
 
+	// create
+	var seriesId uint64
+	{
+		params := &types.SeriesMetadataRequest{
+			SeriesCreateMetadata: types.SeriesCreateMetadata{
+				SeriesMetadata: types.SeriesMetadata{
+					Name: "test",
+				},
+				SeriesCreateIdentifier: 1234,
+			},
+			SessionTicket: authTwoRequest.SessionTicket,
+		}
+		var reply *types.SeriesMetadataResponse
+		err = c.Call(types.EndpointSeriesMetadata.String()+"."+types.MethodName, params, &reply)
+		if err != nil {
+			t.Error("error:", err)
+		}
+		seriesId = reply.Id
+	}
+
 	// write
 	params := &types.WriteRequest{
 		Series: []types.WriteSeriesRequest{{
 			Times:  []uint64{1, 2},
 			Values: []float64{5.0, 6.0},
 			SeriesIdentifier: types.SeriesIdentifier{
-				Id: 1,
+				Id: seriesId,
 			},
 		}},
 		SessionTicket: authTwoRequest.SessionTicket,
