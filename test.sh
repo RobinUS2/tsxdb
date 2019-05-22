@@ -12,3 +12,5 @@ for d in */ ; do
 	staticcheck ./... # download from https://github.com/dominikh/go-tools/releases
 	cd ..
 done
+
+echo "ALL PASSED"

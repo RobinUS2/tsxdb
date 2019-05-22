@@ -48,6 +48,7 @@ func (session *Session) Handle(typedLine InputLine) (err error) {
 	if len(line) < 1 {
 		return nil
 	}
+	upperLine := strings.ToUpper(line)
 	log.Printf("telnet rcv %s", line)
 
 	// tokens
@@ -139,7 +140,22 @@ func (session *Session) Handle(typedLine InputLine) (err error) {
 		if to == 0 && strings.ToLower(tokens[3]) == "+inf" {
 			to = client.QueryBuilderToInf
 		}
-		withScores := strings.Contains(strings.ToUpper(line), "WITHSCORES")
+		withScores := strings.Contains(upperLine, "WITHSCORES")
+
+		// limit
+		var resultOffsetCutOff int64
+		var resultLimit int64
+		var resultOffset int64
+		withLimit := strings.Contains(upperLine, " LIMIT ")
+		if withLimit {
+			limitTokens := strings.Split(strings.Split(upperLine, " LIMIT ")[1], " ")
+			offset, _ := strconv.ParseInt(limitTokens[0], 10, 64)
+			limit, _ := strconv.ParseInt(limitTokens[1], 10, 64)
+			resultOffset = offset
+			resultLimit = limit
+			resultOffsetCutOff = resultOffset + limit
+		}
+
 		series := session.client.Series(seriesName)
 		qb := series.QueryBuilder()
 		qb.From(from)
@@ -150,6 +166,9 @@ func (session *Session) Handle(typedLine InputLine) (err error) {
 		}
 		n := len(res.Results)
 		numResults := n
+		if resultLimit > 0 && int64(numResults) > resultLimit {
+			numResults = int(resultLimit)
+		}
 		if withScores {
 			numResults *= 2
 		}
@@ -157,8 +176,23 @@ func (session *Session) Handle(typedLine InputLine) (err error) {
 		// array format https://redis.io/topics/protocol#array-reply, this is also the "humanly readable" telnet format
 		resultBuffer.Write([]byte(fmt.Sprintf("*%d\r\n", numResults)))
 		resultIterator := res.Iterator()
+		var resultCounter int64 = -1
 		for resultIterator.Next() {
+			// check offset
+			resultCounter++
+			if resultOffset > 0 && resultOffsetCutOff > 0 && resultCounter < resultOffset {
+				// skip
+				continue
+			}
+
+			// limit
+			if resultOffsetCutOff > 0 && resultCounter >= resultOffsetCutOff {
+				break
+			}
+
+			// get value
 			ts, val := resultIterator.Value()
+
 			// val first (score in redis terms)
 			{
 				valStr := fmt.Sprintf("%v", val)

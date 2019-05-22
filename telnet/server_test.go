@@ -195,6 +195,50 @@ func TestInstance_ServeTELNET(t *testing.T) {
 				return nil
 			},
 		},
+		// get first with limit
+		{
+			cmd: "ZRANGEBYSCORE testSeries -inf +inf limit 0 1",
+			validationFn: func(s string) error {
+				const expect = "*1\r\n$2\r\n10"
+				if strings.TrimSpace(s) != expect {
+					return fmt.Errorf("should be %s", expect)
+				}
+				return nil
+			},
+		},
+		// get first two
+		{
+			cmd: "ZRANGEBYSCORE testSeries -inf +inf limit 0 2",
+			validationFn: func(s string) error {
+				const expect = "*2\r\n$2\r\n10\r\n$4\r\n10.1"
+				if strings.TrimSpace(s) != expect {
+					return fmt.Errorf("should be %s", expect)
+				}
+				return nil
+			},
+		},
+		// get 2nd
+		{
+			cmd: "ZRANGEBYSCORE testSeries -inf +inf limit 1 1",
+			validationFn: func(s string) error {
+				const expect = "*1\r\n$4\r\n10.1"
+				if strings.TrimSpace(s) != expect {
+					return fmt.Errorf("should be %s", expect)
+				}
+				return nil
+			},
+		},
+		// get outside limit
+		{
+			cmd: "ZRANGEBYSCORE testSeries -inf +inf limit 0 100",
+			validationFn: func(s string) error {
+				const expect = "*3\r\n$2\r\n10\r\n$4\r\n10.1\r\n$5\r\n110.5"
+				if strings.TrimSpace(s) != expect {
+					return fmt.Errorf("should be %s", expect)
+				}
+				return nil
+			},
+		},
 	}
 	testI := 0
 	var currentTest *test
