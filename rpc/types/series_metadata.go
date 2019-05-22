@@ -4,6 +4,7 @@ type SeriesMetadata struct {
 	Namespace int
 	Name      string
 	Tags      []string
+	Ttl       uint // relative time in seconds
 }
 
 type SeriesCreateMetadata struct {
