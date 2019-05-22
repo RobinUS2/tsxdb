@@ -37,7 +37,13 @@ func (session *Session) SetMode(mode Mode) {
 	session.mode = mode
 }
 
-func (session *Session) Handle(typedLine InputLine) error {
+func (session *Session) Handle(typedLine InputLine) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = errors.New(fmt.Sprintf("unexpected telnet error: %s", r))
+		}
+	}()
+
 	line := strings.TrimSpace(string(typedLine))
 	if len(line) < 1 {
 		return nil
@@ -113,9 +119,12 @@ func (session *Session) Handle(typedLine InputLine) error {
 		return session.Write(":1")
 	} else if command == redisExistsCommand {
 		// existing
+		// @todo in order for this to work the search series commands need to be implemented in client
 		return session.WriteErrMessage(errors.New("EXISTS not yet implemented"))
 	} else if command == redisRemoveFromSortedSetCommand {
 		// remove
+		// @todo in order for this to work the search series commands need to be implemented in client
+		// @todo in order for this to work the delete series commands need to be implemented in client
 		return session.WriteErrMessage(errors.New("ZREM not yet implemented"))
 	} else if command == redisRangeFromSortedSetCommand {
 		// get from serie
