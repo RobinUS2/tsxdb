@@ -11,6 +11,7 @@ import (
 
 func TestMemoryBackend(t *testing.T) {
 	b := backend.NewMemoryBackend()
+	b.SetReverseApi(b) // we implement this interface
 
 	// create
 	req := &backend.CreateSeries{

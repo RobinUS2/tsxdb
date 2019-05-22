@@ -1,5 +1,5 @@
 package backend
 
 type AbstractStrategy interface {
-	GetBackend() AbstractBackend
+	GetBackend() IAbstractBackend
 }

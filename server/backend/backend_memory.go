@@ -23,6 +23,8 @@ type MemoryBackend struct {
 	seriesIdCounter uint64
 	series          map[Series]*SeriesMetadata
 	seriesMux       sync.RWMutex
+
+	AbstractBackend
 }
 
 func (instance *MemoryBackend) Type() TypeBackend {
@@ -86,8 +88,19 @@ func (instance *MemoryBackend) __notLockedInitMaps(context Context, autoCreate b
 	if meta.TtlExpire > 0 {
 		nowSeconds := nowSeconds()
 		if meta.TtlExpire < nowSeconds {
-			// expired
-			// @todo schedule for removal, should not happen in backend memory logic, rather a level up the abstraction
+			// expired, remove it
+			res := instance.ReverseApi().DeleteSeries(&DeleteSeries{
+				Series: []types.SeriesIdentifier{
+					{
+						Namespace: context.Namespace,
+						Id:        context.Series,
+					},
+				},
+			})
+			if res.Error != nil {
+				// @todo deal with in other way
+				panic(res.Error)
+			}
 			return false
 		}
 	}

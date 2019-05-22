@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/RobinUS2/tsxdb/rpc/types"
 	"github.com/RobinUS2/tsxdb/server/backend"
+	"github.com/go-redis/redis"
 	"math"
 	"math/rand"
 	"strings"
@@ -23,6 +24,7 @@ func TestNewRedisBackendSingleConnection(t *testing.T) {
 		},
 	}
 	b := backend.NewRedisBackend(opts)
+	b.SetReverseApi(b) // we implement this
 	if b == nil {
 		t.Error()
 	}
@@ -46,6 +48,7 @@ func TestNewRedisBackendMultiConnection(t *testing.T) {
 		},
 	}
 	b := backend.NewRedisBackend(opts)
+	b.SetReverseApi(b) // we implement this
 	if b == nil {
 		t.Error()
 	}
@@ -358,6 +361,16 @@ func TestNewRedisBackendMultiConnection(t *testing.T) {
 			if res.Error == nil || !strings.Contains(res.Error.Error(), "no data found") {
 				t.Error(res.Error)
 			}
+		}
+
+		// check really removed
+		conn := b.GetConnection(1)
+		if conn == nil {
+			t.Error(conn)
+		}
+		res := conn.Get(fmt.Sprintf("series_%d_%d_meta", 1, firstResult.Id))
+		if res.Err() != redis.Nil || res.Val() != "" {
+			t.Error(res.Err(), res.Val())
 		}
 	}
 	// end TTL test

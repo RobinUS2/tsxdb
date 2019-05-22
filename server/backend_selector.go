@@ -4,7 +4,7 @@ import (
 	"github.com/RobinUS2/tsxdb/server/backend"
 )
 
-func (instance *Instance) SelectBackend(context backend.ContextBackend) (backend.AbstractBackend, error) {
+func (instance *Instance) SelectBackend(context backend.ContextBackend) (backend.IAbstractBackend, error) {
 	selectedStrategy, err := instance.backendSelector.SelectStrategy(context)
 	if err != nil {
 		return nil, err

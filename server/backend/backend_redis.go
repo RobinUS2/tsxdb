@@ -22,6 +22,8 @@ type RedisBackend struct {
 	opts *RedisOpts
 
 	connections []*redis.Client
+
+	AbstractBackend
 }
 
 func (instance *RedisBackend) Type() TypeBackend {
@@ -34,7 +36,7 @@ func (instance *RedisBackend) getDataKey(ctx Context, timestamp uint64) string {
 }
 
 func (instance *RedisBackend) Write(context ContextWrite, timestamps []uint64, values []float64) error {
-	conn := instance.getConnection(Namespace(context.Namespace))
+	conn := instance.GetConnection(Namespace(context.Namespace))
 	if conn == nil {
 		return redisNoConnForNamespaceErr
 	}
@@ -94,10 +96,10 @@ func (instance *RedisBackend) getKeysInRange(ctx ContextRead) []string {
 }
 
 func (instance *RedisBackend) Read(context ContextRead) (res ReadResult) {
-	conn := instance.getConnection(Namespace(context.Namespace))
+	conn := instance.GetConnection(Namespace(context.Namespace))
 
 	// meta
-	meta, err := instance.getMetadata(Namespace(context.Namespace), context.Series)
+	meta, err := instance.getMetadata(Namespace(context.Namespace), context.Series, false)
 	if err != nil || meta.Id < 1 {
 		res.Error = errors.Wrap(err, "missing metadata")
 		return
@@ -150,7 +152,7 @@ func (instance *RedisBackend) getSeriesMetaKey(namespace Namespace, id uint64) s
 
 func (instance *RedisBackend) createOrUpdateSeries(identifier types.SeriesCreateIdentifier, series types.SeriesCreateMetadata) (result types.SeriesMetadataResponse, err error) {
 	// get right client
-	conn := instance.getConnection(Namespace(series.Namespace))
+	conn := instance.GetConnection(Namespace(series.Namespace))
 
 	// existing
 	seriesKey := instance.getSeriesByNameKey(Namespace(series.Namespace), series.Name)
@@ -310,7 +312,7 @@ func (instance *RedisBackend) SearchSeries(search *SearchSeries) (result *Search
 
 	// by name
 	if search.Name != "" {
-		conn := instance.getConnection(Namespace(search.Namespace))
+		conn := instance.GetConnection(Namespace(search.Namespace))
 		seriesKey := instance.getSeriesByNameKey(Namespace(search.Namespace), search.Name)
 		res := conn.Get(seriesKey)
 		if filterNilErr(res.Err()) != nil {
@@ -339,8 +341,8 @@ func (instance *RedisBackend) SearchSeries(search *SearchSeries) (result *Search
 	return nil
 }
 
-func (instance *RedisBackend) getMetadata(namespace Namespace, id uint64) (result SeriesMetadata, err error) {
-	conn := instance.getConnection(namespace)
+func (instance *RedisBackend) getMetadata(namespace Namespace, id uint64, ignoreExpiry bool) (result SeriesMetadata, err error) {
+	conn := instance.GetConnection(namespace)
 	metaKey := instance.getSeriesMetaKey(namespace, id)
 
 	res := conn.Get(metaKey)
@@ -354,11 +356,22 @@ func (instance *RedisBackend) getMetadata(namespace Namespace, id uint64) (resul
 	}
 
 	// ttl of series
-	if data.TtlExpire > 0 {
+	if !ignoreExpiry && data.TtlExpire > 0 {
 		nowSeconds := nowSeconds()
 		if data.TtlExpire < nowSeconds {
-			// expired
-			// @todo schedule for removal, should not happen in backend memory logic, rather a level up the abstraction
+			// expired, remove it
+			res := instance.ReverseApi().DeleteSeries(&DeleteSeries{
+				Series: []types.SeriesIdentifier{
+					{
+						Namespace: namespace.Int(),
+						Id:        id,
+					},
+				},
+			})
+			if res.Error != nil {
+				// @todo deal with in other way
+				panic(res.Error)
+			}
 			err = errors.Wrapf(ErrNoDataFound, "series %d expired", id)
 			return
 		}
@@ -371,10 +384,10 @@ func (instance *RedisBackend) getMetadata(namespace Namespace, id uint64) (resul
 func (instance *RedisBackend) DeleteSeries(ops *DeleteSeries) (result *DeleteSeriesResult) {
 	result = &DeleteSeriesResult{}
 	for _, op := range ops.Series {
-		conn := instance.getConnection(Namespace(op.Namespace))
+		conn := instance.GetConnection(Namespace(op.Namespace))
 
 		// meta
-		meta, err := instance.getMetadata(Namespace(op.Namespace), op.Id)
+		meta, err := instance.getMetadata(Namespace(op.Namespace), op.Id, true)
 		if err != nil {
 			result.Error = err
 			return
@@ -410,7 +423,7 @@ func (instance *RedisBackend) DeleteSeries(ops *DeleteSeries) (result *DeleteSer
 	return
 }
 
-func (instance *RedisBackend) getConnection(namespace Namespace) *redis.Client {
+func (instance *RedisBackend) GetConnection(namespace Namespace) *redis.Client {
 	val := instance.connections[namespace]
 	if val != nil {
 		return val

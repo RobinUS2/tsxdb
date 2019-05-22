@@ -11,3 +11,7 @@ type SeriesMetadata struct {
 	Tags      []string `json:",omitempty"`
 	TtlExpire uint64   `json:",omitempty"` //  0 OR time in the future in seconds
 }
+
+func (n Namespace) Int() int {
+	return int(n)
+}

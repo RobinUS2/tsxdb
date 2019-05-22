@@ -72,9 +72,6 @@ func (instance *Instance) Init() error {
 	// @todo from config
 	instance.backendSelector = backend.NewSelector()
 	myBackend := backend.NewMemoryBackend()
-	if err := myBackend.Init(); err != nil {
-		return err
-	}
 	myStrategy := backend.NewSimpleStrategy(myBackend)
 	if err := instance.backendSelector.AddStrategy(myStrategy); err != nil {
 		return err
@@ -87,6 +84,14 @@ func (instance *Instance) Init() error {
 
 	// metadata
 	instance.metaStore = backend.NewMetadata(myBackend)
+
+	// link back to the system
+	myBackend.SetReverseApi(instance.metaStore)
+
+	// init backend
+	if err := myBackend.Init(); err != nil {
+		return err
+	}
 
 	return nil
 }
