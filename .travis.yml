@@ -3,4 +3,4 @@ language: go
 go:
   - "1.12"
 
-script: "./test.sh" 
+script: "env GO111MODULE=on ./test.sh" 
