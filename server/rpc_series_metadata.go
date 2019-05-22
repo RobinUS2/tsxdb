@@ -3,6 +3,8 @@ package server
 import (
 	"github.com/RobinUS2/tsxdb/rpc/types"
 	"github.com/RobinUS2/tsxdb/server/backend"
+	"github.com/pkg/errors"
+	"strings"
 )
 
 func init() {
@@ -22,6 +24,16 @@ func (endpoint *SeriesMetadataEndpoint) Execute(args *types.SeriesMetadataReques
 	// auth
 	if err := endpoint.server.validateSession(args.SessionTicket); err != nil {
 		resp.Error = &types.RpcErrorAuthFailed
+		return nil
+	}
+
+	// validate name
+	if strings.Contains(args.SeriesCreateMetadata.Name, " ") {
+		resp.Error = types.WrapErrorPointer(errors.New("series name can not contain whitespace"))
+		return nil
+	}
+	if len(args.SeriesCreateMetadata.Name) < 1 {
+		resp.Error = types.WrapErrorPointer(errors.New("series name can not be empty"))
 		return nil
 	}
 

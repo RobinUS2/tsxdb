@@ -9,6 +9,14 @@ import (
 
 // init series metadata on the server side (only transmits names, tags, etc. once instead of each time)
 
+func (series *Series) Create() (id uint64, err error) {
+	conn, err := series.client.GetConnection()
+	if err != nil {
+		return 0, err
+	}
+	return series.Init(conn)
+}
+
 func (series *Series) Init(conn *ManagedConnection) (id uint64, err error) {
 	// fast path
 	id = atomic.LoadUint64(&series.id)

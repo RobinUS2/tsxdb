@@ -92,6 +92,24 @@ func TestNew(t *testing.T) {
 		//t.Log(ts, value)
 	}
 
+	// empty name
+	{
+		series := c.Series("")
+		id, err := series.Create()
+		if id != 0 || err == nil {
+			t.Error("should error", id, err)
+		}
+	}
+
+	// invalid name
+	{
+		series := c.Series("with whitespace")
+		id, err := series.Create()
+		if id != 0 || err == nil {
+			t.Error("should error", id, err)
+		}
+	}
+
 	c.Close()
 	_ = s.Shutdown()
 }
