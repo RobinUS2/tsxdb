@@ -2,10 +2,10 @@ package client
 
 import (
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"github.com/RobinUS2/tsxdb/rpc/types"
 	"github.com/RobinUS2/tsxdb/tools"
+	"github.com/pkg/errors"
 	insecureRand "math/rand"
 	"net/rpc"
 	"strings"
@@ -20,10 +20,9 @@ func (client *Instance) initConnectionPool() error {
 				return nil
 			}
 			c, err := client.NewConnection()
-			//log.Println("new con")
 			if err != nil {
-				// @todo what to do?
-				panic(err)
+				// is dealt with in (client *Instance) GetConnection() (*ManagedConnection, error)
+				panic(errors.Wrap(err, "failed to init new connection"))
 			}
 			return c
 		},
@@ -31,7 +30,15 @@ func (client *Instance) initConnectionPool() error {
 	return nil
 }
 
-func (client *Instance) GetConnection() (*ManagedConnection, error) {
+func (client *Instance) GetConnection() (managedConnection *ManagedConnection, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			managedConnection = nil
+			err = errors.New(fmt.Sprintf("%s", r))
+		}
+	}()
+
+	// get connection, this may panic
 	conn := client.connectionPool.Get()
 	if conn == nil {
 		if client.closing {
@@ -39,7 +46,11 @@ func (client *Instance) GetConnection() (*ManagedConnection, error) {
 		}
 		return nil, errors.New("failed to obtain connection")
 	}
-	managedConnection := conn.(*ManagedConnection)
+
+	// correct type
+	managedConnection = conn.(*ManagedConnection)
+
+	// auth
 	if !managedConnection.authenticated {
 		if err := managedConnection.auth(client); err != nil {
 			return nil, err
