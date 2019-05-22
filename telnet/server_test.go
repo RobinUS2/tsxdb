@@ -184,6 +184,17 @@ func TestInstance_ServeTELNET(t *testing.T) {
 				return nil
 			},
 		},
+		// get all three -inf +inf
+		{
+			cmd: "ZRANGEBYSCORE testSeries -inf +inf",
+			validationFn: func(s string) error {
+				const expect = "*3\r\n$2\r\n10\r\n$4\r\n10.1\r\n$5\r\n110.5"
+				if strings.TrimSpace(s) != expect {
+					return fmt.Errorf("should be %s", expect)
+				}
+				return nil
+			},
+		},
 	}
 	testI := 0
 	var currentTest *test

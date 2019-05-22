@@ -123,7 +123,13 @@ func (session *Session) Handle(typedLine InputLine) error {
 		// @todo ZRANGEBYSCORE abc -inf +inf should return all values
 		seriesName := tokens[1]
 		from, _ := strconv.ParseUint(tokens[2], 10, 64)
+		if from == 0 && strings.ToLower(tokens[2]) == "-inf" {
+			from = client.QueryBuilderFromInf
+		}
 		to, _ := strconv.ParseUint(tokens[3], 10, 64)
+		if to == 0 && strings.ToLower(tokens[3]) == "+inf" {
+			to = client.QueryBuilderToInf
+		}
 		withScores := strings.Contains(strings.ToUpper(line), "WITHSCORES")
 		series := session.client.Series(seriesName)
 		qb := series.QueryBuilder()
