@@ -1,6 +1,12 @@
 package client
 
-import "errors"
+import (
+	"errors"
+	"math"
+)
+
+const QueryBuilderFromInf uint64 = 1
+const QueryBuilderToInf uint64 = math.MaxUint64
 
 type QueryBuilder struct {
 	series *Series
