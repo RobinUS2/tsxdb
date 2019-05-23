@@ -13,6 +13,8 @@ import (
 	"time"
 )
 
+// @todo explore something like https://github.com/grpc/grpc OR https://github.com/valyala/gorpc as replacement of regular net/rpc (right now a lot of overhead in network bytes)
+
 func (client *Instance) initConnectionPool() error {
 	client.connectionPool = &sync.Pool{
 		New: func() interface{} {
