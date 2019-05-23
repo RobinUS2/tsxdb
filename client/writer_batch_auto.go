@@ -25,6 +25,20 @@ type AutoBatchWriter struct {
 	currentSize uint64
 	flushCount  uint64
 	lastFlush   uint64
+
+	errors chan error
+}
+
+// subscribe to this channel to prevent panics in the ticker
+func (instance *AutoBatchWriter) Errors(intOpts ...int) chan error {
+	if instance.errors == nil {
+		bufferSize := 1
+		if intOpts != nil && len(intOpts) == 1 {
+			bufferSize = intOpts[0]
+		}
+		instance.errors = make(chan error, bufferSize)
+	}
+	return instance.errors
 }
 
 func (instance *AutoBatchWriter) SetPostFlushFn(postFlushFn func()) {
@@ -108,7 +122,10 @@ func (instance *AutoBatchWriter) startFlusher() {
 				continue
 			}
 			if err := instance.flush(); err != nil {
-				panic(err)
+				if instance.errors == nil {
+					panic(err)
+				}
+				instance.errors <- err
 			}
 		}
 	}()
@@ -129,6 +146,7 @@ func (client *Instance) NewAutoBatchWriter(batchSize uint64, timeout time.Durati
 		batchSize: batchSize,
 		timeoutMs: uint64(timeout.Nanoseconds() / nanoToMs),
 		lastFlush: nowMs(),
+		errors:    nil,
 	}
 	autoBatchWriter.initBatch()
 	autoBatchWriter.startFlusher()
