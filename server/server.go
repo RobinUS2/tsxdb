@@ -31,6 +31,8 @@ type Instance struct {
 	rpcListenerMux sync.RWMutex
 
 	metaStore backend.IMetadata
+
+	telnetServer *telnet.Instance
 }
 
 func (instance *Instance) RpcListener() net.Listener {
@@ -117,9 +119,9 @@ func (instance *Instance) Start() (err error) {
 		telOpts.AuthToken = instance.Opts().AuthToken
 		telOpts.ServerHost = instance.Opts().ListenHost
 		telOpts.ServerPort = instance.Opts().ListenPort
-		t := telnet.New(telOpts)
+		instance.telnetServer = telnet.New(telOpts)
 		go func() {
-			err := t.Listen()
+			err := instance.telnetServer.Listen()
 			if err != nil {
 				panic(err)
 			}
@@ -149,6 +151,13 @@ func (instance *Instance) Shutdown() error {
 		}
 		// force shutdown
 		if err := instance.closeRpc(); err != nil {
+			return err
+		}
+	}
+
+	// shutdown telnet
+	if instance.telnetServer != nil {
+		if err := instance.telnetServer.Shutdown(); err != nil {
 			return err
 		}
 	}
