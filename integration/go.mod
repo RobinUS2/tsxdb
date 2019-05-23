@@ -16,5 +16,5 @@ replace github.com/RobinUS2/tsxdb/telnet => ../telnet
 
 require (
 	github.com/RobinUS2/tsxdb/client v0.0.0-20190522091141-58b9a6f0dfb2
-	github.com/RobinUS2/tsxdb/server v0.0.0-20190522091141-58b9a6f0dfb2
+	github.com/RobinUS2/tsxdb/server v0.0.0-20190523121601-0130f23bf035
 )

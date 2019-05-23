@@ -123,7 +123,7 @@ func (instance *Instance) Start() (err error) {
 		go func() {
 			err := instance.telnetServer.Listen()
 			if err != nil {
-				panic(err)
+				log.Printf("telnet failed to listen %s", err)
 			}
 		}()
 	}
