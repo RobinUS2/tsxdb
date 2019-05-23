@@ -85,8 +85,8 @@ func (instance *AutoBatchWriter) AddToBatch(series *Series, ts uint64, v float64
 func (instance *AutoBatchWriter) startFlusher() {
 	instance.ticker = time.NewTicker(instance.timeout / 10)
 	go func() {
-		for _ = range instance.ticker.C {
-
+		for range instance.ticker.C {
+			// @todo check last flush time
 			if err := instance.flush(); err != nil {
 				panic(err)
 			}
