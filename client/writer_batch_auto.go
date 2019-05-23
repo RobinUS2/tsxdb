@@ -33,7 +33,7 @@ type AutoBatchWriter struct {
 func (instance *AutoBatchWriter) Errors(intOpts ...int) chan error {
 	if instance.errors == nil {
 		bufferSize := 1
-		if intOpts != nil && len(intOpts) == 1 {
+		if len(intOpts) == 1 {
 			bufferSize = intOpts[0]
 		}
 		instance.errors = make(chan error, bufferSize)
