@@ -116,9 +116,9 @@ func TestNew(t *testing.T) {
 		if b == nil {
 			t.Error()
 		}
-		flushed := false
+		var flushCount uint64
 		b.SetPostFlushFn(func() {
-			flushed = true
+			atomic.AddUint64(&flushCount, 1)
 		})
 
 		// series
@@ -128,16 +128,36 @@ func TestNew(t *testing.T) {
 		}
 
 		// allow ticker to tick
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(60 * time.Millisecond)
 
-		// check flush count
-		if b.FlushCount() < 1 {
+		// check flush count, should still be zero
+		if b.FlushCount() != 0 {
 			t.Error(b.FlushCount())
 		}
 
-		// flushed?
-		if !flushed {
-			t.Error("should have flushed")
+		// allow ticker to tick
+		time.Sleep(60 * time.Millisecond)
+
+		// check flush count, should still be higher
+		if b.FlushCount() != 1 {
+			t.Error(b.FlushCount())
+		}
+
+		// flushCount?
+		if atomic.LoadUint64(&flushCount) != 1 {
+			t.Error("should have flushCount", flushCount)
+		}
+
+		// hit limit
+		for i := 0; i < 10; i++ {
+			if err := b.AddToBatch(series, rand.Uint64(), rand.Float64()); err != nil {
+				t.Error(err)
+			}
+		}
+
+		// flushCount?
+		if atomic.LoadUint64(&flushCount) != 3 {
+			t.Error("should have flushCount", flushCount)
 		}
 
 		// close

@@ -8,11 +8,15 @@ import (
 
 // automatically managed batch, can set a limit (number of items) and timeout (every x seconds)
 
+const nanoToMs = 1000 * 1000
+
 type AutoBatchWriter struct {
-	batch       *BatchWriter
+	batch    *BatchWriter
+	batchMux sync.RWMutex
+
 	client      *Instance
 	batchSize   uint64
-	timeout     time.Duration
+	timeoutMs   uint64
 	flushMux    sync.RWMutex
 	ticker      *time.Ticker
 	postFlushFn func()
@@ -34,20 +38,28 @@ func (instance *AutoBatchWriter) FlushCount() uint64 {
 // unsafe, not locked
 func (instance *AutoBatchWriter) initBatch() {
 	instance.batch = instance.client.NewBatchWriter()
+	atomic.StoreUint64(&instance.currentSize, 0)
 }
 
 func (instance *AutoBatchWriter) flush() error {
 	// empty ?
-	instance.flushMux.RLock()
-	if instance.batch.Size() < 1 {
-		instance.flushMux.RUnlock()
+	size := atomic.LoadUint64(&instance.currentSize)
+	if size < 1 {
 		return nil
 	}
-	instance.flushMux.RUnlock()
 
-	// lock
+	// lock flush
 	instance.flushMux.Lock()
 	defer instance.flushMux.Unlock()
+
+	// lock the batch (for writing)
+	instance.batchMux.Lock()
+	defer instance.batchMux.Unlock()
+
+	// double check
+	if instance.batch.Size() < 1 {
+		return nil
+	}
 
 	// execute
 	res := instance.batch.Execute()
@@ -57,7 +69,7 @@ func (instance *AutoBatchWriter) flush() error {
 
 	// stats
 	atomic.AddUint64(&instance.flushCount, 1)
-	atomic.StoreUint64(&instance.lastFlush, uint64(time.Now().UnixNano()))
+	atomic.StoreUint64(&instance.lastFlush, nowMs())
 
 	// new batch
 	instance.initBatch()
@@ -71,9 +83,12 @@ func (instance *AutoBatchWriter) flush() error {
 }
 
 func (instance *AutoBatchWriter) AddToBatch(series *Series, ts uint64, v float64) error {
+	instance.batchMux.Lock()
 	if err := instance.batch.AddToBatch(series, ts, v); err != nil {
+		instance.batchMux.Unlock()
 		return err
 	}
+	instance.batchMux.Unlock()
 	// check size, for auth flush
 	newSize := atomic.AddUint64(&instance.currentSize, 1)
 	if newSize >= instance.batchSize {
@@ -83,15 +98,24 @@ func (instance *AutoBatchWriter) AddToBatch(series *Series, ts uint64, v float64
 }
 
 func (instance *AutoBatchWriter) startFlusher() {
-	instance.ticker = time.NewTicker(instance.timeout / 10)
+	instance.ticker = time.NewTicker(time.Duration(instance.timeoutMs) * time.Millisecond / 10)
 	go func() {
 		for range instance.ticker.C {
-			// @todo check last flush time
+			lastFlush := atomic.LoadUint64(&instance.lastFlush)
+			ts := nowMs()
+			deltaT := ts - lastFlush
+			if deltaT < instance.timeoutMs {
+				continue
+			}
 			if err := instance.flush(); err != nil {
 				panic(err)
 			}
 		}
 	}()
+}
+
+func nowMs() uint64 {
+	return uint64(time.Now().UnixNano() / nanoToMs)
 }
 
 func (instance *AutoBatchWriter) Close() error {
@@ -103,7 +127,8 @@ func (client *Instance) NewAutoBatchWriter(batchSize uint64, timeout time.Durati
 	autoBatchWriter := &AutoBatchWriter{
 		client:    client,
 		batchSize: batchSize,
-		timeout:   timeout,
+		timeoutMs: uint64(timeout.Nanoseconds() / nanoToMs),
+		lastFlush: nowMs(),
 	}
 	autoBatchWriter.initBatch()
 	autoBatchWriter.startFlusher()
