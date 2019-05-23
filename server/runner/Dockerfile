@@ -5,6 +5,10 @@ MAINTAINER Robin Verlangen
 RUN apt-get update && \
     apt-get dist-upgrade -y
 
+# Debug tools
+RUN apt-get update && \
+    apt-get install dstat telnet redis-tools htop -y
+
 # User (+group) to run as non-root
 RUN groupadd -r tsxdb && useradd -r -g tsxdb tsxdb
 
