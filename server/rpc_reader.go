@@ -3,6 +3,7 @@ package server
 import (
 	"github.com/RobinUS2/tsxdb/rpc/types"
 	"github.com/RobinUS2/tsxdb/server/backend"
+	"sync/atomic"
 )
 
 func init() {
@@ -52,6 +53,9 @@ func (endpoint *ReaderEndpoint) Execute(args *types.ReadRequest, resp *types.Rea
 		finalResults[query.Id] = rollupResults.Results
 	}
 	resp.Results = finalResults
+
+	// stats
+	atomic.AddUint64(&endpoint.server.numReads, 1)
 
 	return nil
 }

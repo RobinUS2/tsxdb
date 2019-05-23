@@ -9,6 +9,7 @@ import (
 	"github.com/RobinUS2/tsxdb/rpc/types"
 	"github.com/RobinUS2/tsxdb/tools"
 	insecureRand "math/rand"
+	"sync/atomic"
 )
 
 func init() {
@@ -57,7 +58,7 @@ func (endpoint *AuthEndpoint) Execute(args *types.AuthRequest, resp *types.AuthR
 		resp.SessionSecret = base64.StdEncoding.EncodeToString(token)
 
 		// store in server
-		// @todo token expiry
+		// @todo token expiry, this leaks memory
 		endpoint.server.sessionTokensMux.Lock()
 		endpoint.server.sessionTokens[resp.SessionId] = token
 		endpoint.server.sessionTokensMux.Unlock()
@@ -67,6 +68,9 @@ func (endpoint *AuthEndpoint) Execute(args *types.AuthRequest, resp *types.AuthR
 			resp.Error = types.WrapErrorPointer(err)
 			return nil
 		}
+
+		// auth stats
+		atomic.AddUint64(&endpoint.server.numAuthentications)
 	}
 
 	resp.Error = nil
@@ -105,5 +109,9 @@ func (instance *Instance) validateSession(ticket types.SessionTicket) error {
 	if expectedSessionSignature != ticket.Signature {
 		return types.RpcErrorAuthFailed.Error()
 	}
+
+	// track statistics of calls
+	atomic.AddUint64(&instance.numCalls, 1)
+
 	return nil
 }

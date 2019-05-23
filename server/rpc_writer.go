@@ -3,6 +3,7 @@ package server
 import (
 	"github.com/RobinUS2/tsxdb/rpc/types"
 	"github.com/RobinUS2/tsxdb/server/backend"
+	"sync/atomic"
 )
 
 func init() {
@@ -65,6 +66,9 @@ func (endpoint *WriterEndpoint) Execute(args *types.WriteRequest, resp *types.Wr
 		}
 	}
 	resp.Num = numTimesTotal
+
+	// basic stats
+	atomic.AddUint64(&endpoint.server.numValuesWritten, uint64(resp.Num))
 
 	return nil
 }

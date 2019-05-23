@@ -5,6 +5,7 @@ import (
 	"github.com/RobinUS2/tsxdb/server/backend"
 	"github.com/pkg/errors"
 	"strings"
+	"sync/atomic"
 )
 
 func init() {
@@ -49,6 +50,13 @@ func (endpoint *SeriesMetadataEndpoint) Execute(args *types.SeriesMetadataReques
 	resp.Id = thisResult.Id
 	resp.Error = thisResult.Error
 	resp.SeriesCreateIdentifier = thisResult.SeriesCreateIdentifier
+
+	// basic stats
+	if resp.New {
+		atomic.AddUint64(&endpoint.server.numSeriesCreated, 1)
+	} else {
+		atomic.AddUint64(&endpoint.server.numSeriesInitialised, 1)
+	}
 
 	return nil
 }

@@ -36,6 +36,29 @@ type Instance struct {
 	metaStore backend.IMetadata
 
 	telnetServer *telnet.Instance
+
+	// stats
+	Stats
+}
+
+type Stats struct {
+	numCalls             uint64
+	numValuesWritten     uint64
+	numSeriesCreated     uint64
+	numSeriesInitialised uint64
+	numAuthentications   uint64
+	numReads             uint64
+}
+
+func (instance *Instance) Statistics() Stats {
+	return Stats{
+		numCalls:             atomic.LoadUint64(&instance.numCalls),
+		numValuesWritten:     atomic.LoadUint64(&instance.numValuesWritten),
+		numSeriesCreated:     atomic.LoadUint64(&instance.numSeriesCreated),
+		numSeriesInitialised: atomic.LoadUint64(&instance.numSeriesInitialised),
+		numAuthentications:   atomic.LoadUint64(&instance.numAuthentications),
+		numReads:             atomic.LoadUint64(&instance.numReads),
+	}
 }
 
 func (instance *Instance) RpcListener() net.Listener {
@@ -99,6 +122,13 @@ func (instance *Instance) Init() error {
 		return err
 	}
 
+	// stats ticker
+	ticker := time.NewTicker(60 * time.Second)
+	go func() {
+		for range ticker.C {
+			log.Printf("stats %+v", instance.Statistics())
+		}
+	}()
 	return nil
 }
 
