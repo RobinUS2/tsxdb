@@ -70,5 +70,6 @@ func (instance *Instance) ServeConn(conn net.Conn) {
 		time.Sleep(60 * time.Second)
 		//log.Printf("check auth from %v", conn.RemoteAddr())
 		_ = conn.Close()
+		instance.RemoveConn(conn)
 	}()
 }

@@ -175,3 +175,9 @@ func (instance *Instance) RegisterConn(conn net.Conn) {
 	instance.connections[conn.RemoteAddr()] = conn
 	instance.connectionsMux.Unlock()
 }
+
+func (instance *Instance) RemoveConn(conn net.Conn) {
+	instance.connectionsMux.Lock()
+	delete(instance.connections, conn.RemoteAddr())
+	instance.connectionsMux.Unlock()
+}
