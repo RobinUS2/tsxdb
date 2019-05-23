@@ -11,12 +11,43 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 type Instance struct {
-	opts     *Opts
-	server   *tel.Server
-	listener net.Listener
+	opts *Opts
+
+	server    *tel.Server
+	serverMux sync.RWMutex
+
+	listener    net.Listener
+	listenerMux sync.RWMutex
+}
+
+func (instance *Instance) Server() *tel.Server {
+	instance.serverMux.RLock()
+	x := instance.server
+	instance.serverMux.RUnlock()
+	return x
+}
+
+func (instance *Instance) SetServer(server *tel.Server) {
+	instance.serverMux.Lock()
+	instance.server = server
+	instance.serverMux.Unlock()
+}
+
+func (instance *Instance) Listener() net.Listener {
+	instance.listenerMux.RLock()
+	x := instance.listener
+	instance.listenerMux.RUnlock()
+	return x
+}
+
+func (instance *Instance) SetListener(listener net.Listener) {
+	instance.listenerMux.Lock()
+	instance.listener = listener
+	instance.listenerMux.Unlock()
 }
 
 func (instance *Instance) Listen() error {
@@ -27,15 +58,15 @@ func (instance *Instance) Listen() error {
 	log.Printf("telnet listening at %s", listenStr)
 
 	// listener
-	var err error
-	instance.listener, err = net.Listen("tcp", listenStr)
+	listener, err := net.Listen("tcp", listenStr)
 	if err != nil {
 		return err
 	}
+	instance.SetListener(listener)
 
 	// server
-	instance.server = &tel.Server{Addr: listenStr, Handler: instance}
-	err = instance.server.Serve(instance.listener)
+	instance.SetServer(&tel.Server{Addr: listenStr, Handler: instance})
+	err = instance.Server().Serve(instance.Listener())
 	if err != nil {
 		return err
 	}
@@ -43,12 +74,12 @@ func (instance *Instance) Listen() error {
 }
 
 func (instance *Instance) Shutdown() error {
-	if err := instance.listener.Close(); err != nil {
+	if err := instance.Listener().Close(); err != nil {
 		return err
 	}
 	log.Println("tel listener shutdown")
-	instance.listener = nil
-	instance.server = nil
+	instance.SetListener(nil)
+	instance.SetServer(nil)
 	return nil
 }
 
