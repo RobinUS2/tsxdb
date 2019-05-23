@@ -10,6 +10,10 @@ type BatchWriter struct {
 	items  []BatchItem
 }
 
+func (batch *BatchWriter) Size() int {
+	return len(batch.items)
+}
+
 func (batch *BatchWriter) ToWriteRequest(conn *ManagedConnection) (request types.WriteRequest, err error) {
 	seriesTimestamps := make(map[uint64][]uint64) // key of outer slice is the series id
 	seriesValues := make(map[uint64][]float64)    // key of outer slice is the series id

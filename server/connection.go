@@ -59,6 +59,7 @@ func (instance *Instance) closeRpc() error {
 }
 
 func (instance *Instance) ServeConn(conn net.Conn) {
+	instance.RegisterConn(conn)
 	atomic.AddInt64(&instance.pendingRequests, 1)
 	//log.Printf("connection from %v", conn.RemoteAddr())
 	instance.rpc.ServeConn(conn)

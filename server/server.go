@@ -24,6 +24,9 @@ type Instance struct {
 
 	pendingRequests int64
 
+	connections    map[net.Addr]net.Conn
+	connectionsMux sync.RWMutex
+
 	sessionTokens    map[int][]byte // session id => secret
 	sessionTokensMux sync.RWMutex
 
@@ -58,6 +61,7 @@ func New(opts *Opts) *Instance {
 		rpc:           rpc.NewServer(),
 		rollupReader:  rollup.NewReader(),
 		sessionTokens: make(map[int][]byte),
+		connections:   make(map[net.Addr]net.Conn),
 	}
 }
 
@@ -164,4 +168,10 @@ func (instance *Instance) Shutdown() error {
 
 	log.Println("shutdown complete")
 	return nil
+}
+
+func (instance *Instance) RegisterConn(conn net.Conn) {
+	instance.connectionsMux.Lock()
+	instance.connections[conn.RemoteAddr()] = conn
+	instance.connectionsMux.Unlock()
 }

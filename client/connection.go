@@ -21,7 +21,7 @@ func (client *Instance) initConnectionPool() error {
 			if client.closing {
 				return nil
 			}
-			c, err := client.NewConnection()
+			c, err := client.NewClient()
 			if err != nil {
 				// is dealt with in (client *Instance) GetConnection() (*ManagedConnection, error)
 				panic(errors.Wrap(err, "failed to init new connection"))
@@ -61,13 +61,13 @@ func (client *Instance) GetConnection() (managedConnection *ManagedConnection, e
 	return managedConnection, nil
 }
 
-func (client *Instance) NewConnection() (*ManagedConnection, error) {
-	conn, err := rpc.Dial("tcp", client.opts.ListenHost+fmt.Sprintf(":%d", client.opts.ListenPort))
+func (client *Instance) NewClient() (*ManagedConnection, error) {
+	rpcClient, err := rpc.Dial("tcp", client.opts.ListenHost+fmt.Sprintf(":%d", client.opts.ListenPort))
 	if err != nil {
 		return nil, err
 	}
 	return &ManagedConnection{
-		client:  conn,
+		client:  rpcClient,
 		pool:    client.connectionPool,
 		created: time.Now().Unix(),
 	}, nil

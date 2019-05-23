@@ -110,6 +110,42 @@ func TestNew(t *testing.T) {
 		}
 	}
 
+	{
+		// auto batch
+		b := c.NewAutoBatchWriter(5, 100*time.Millisecond)
+		if b == nil {
+			t.Error()
+		}
+		flushed := false
+		b.SetPostFlushFn(func() {
+			flushed = true
+		})
+
+		// series
+		series := c.Series("testSeries")
+		if err := b.AddToBatch(series, rand.Uint64(), rand.Float64()); err != nil {
+			t.Error(err)
+		}
+
+		// allow ticker to tick
+		time.Sleep(50 * time.Millisecond)
+
+		// check flush count
+		if b.FlushCount() < 1 {
+			t.Error(b.FlushCount())
+		}
+
+		// flushed?
+		if !flushed {
+			t.Error("should have flushed")
+		}
+
+		// close
+		if err := b.Close(); err != nil {
+			t.Error(err)
+		}
+	}
+
 	c.Close()
 	_ = s.Shutdown()
 }
