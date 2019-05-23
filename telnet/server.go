@@ -8,12 +8,15 @@ import (
 	tel "github.com/reiver/go-telnet" // weird things happen if package with same name is imported as the package/module it's in unless aliased
 	"io"
 	"log"
+	"net"
 	"strconv"
 	"strings"
 )
 
 type Instance struct {
-	opts *Opts
+	opts     *Opts
+	server   *tel.Server
+	listener net.Listener
 }
 
 func (instance *Instance) Listen() error {
@@ -22,10 +25,30 @@ func (instance *Instance) Listen() error {
 	}
 	listenStr := fmt.Sprintf("%s:%d", instance.opts.Host, instance.opts.Port)
 	log.Printf("telnet listening at %s", listenStr)
-	err := tel.ListenAndServe(listenStr, instance)
-	if nil != err {
+
+	// listener
+	var err error
+	instance.listener, err = net.Listen("tcp", listenStr)
+	if err != nil {
 		return err
 	}
+
+	// server
+	instance.server = &tel.Server{Addr: listenStr, Handler: instance}
+	err = instance.server.Serve(instance.listener)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (instance *Instance) Shutdown() error {
+	if err := instance.listener.Close(); err != nil {
+		return err
+	}
+	log.Println("tel listener shutdown")
+	instance.listener = nil
+	instance.server = nil
 	return nil
 }
 
