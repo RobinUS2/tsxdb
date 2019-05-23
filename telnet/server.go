@@ -74,10 +74,12 @@ func (instance *Instance) Listen() error {
 }
 
 func (instance *Instance) Shutdown() error {
-	if err := instance.Listener().Close(); err != nil {
-		return err
+	if instance.Listener() != nil {
+		if err := instance.Listener().Close(); err != nil {
+			return err
+		}
+		log.Println("tel listener shutdown")
 	}
-	log.Println("tel listener shutdown")
 	instance.SetListener(nil)
 	instance.SetServer(nil)
 	return nil
