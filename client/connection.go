@@ -103,7 +103,12 @@ func (conn *ManagedConnection) executeAuthRequest(request types.AuthRequest) (re
 		// close the real underlying RPC connection
 		if !success {
 			_ = conn.client.Close()
-			err = errors.New("no success")
+			errNoSuccess := errors.New("no success")
+			if err == nil {
+				err = errNoSuccess
+			} else {
+				err = errors.Wrap(err, errNoSuccess.Error())
+			}
 		}
 	}()
 
