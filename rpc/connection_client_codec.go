@@ -42,10 +42,9 @@ func NewGobClientCodec(rwc io.ReadWriteCloser) *GobClientCodec {
 	enc := gob.NewEncoder(encBuf)
 
 	return &GobClientCodec{
-		rwc:      rwc,
-		dec:      dec,
-		enc:      enc,
-		encBuf:   encBuf,
-		encGzBuf: nil,
+		rwc:    rwc,
+		dec:    dec,
+		enc:    enc,
+		encBuf: encBuf,
 	}
 }
