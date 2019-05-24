@@ -38,10 +38,14 @@ func (c *GobClientCodec) Close() error {
 
 func NewGobClientCodec(rwc io.ReadWriteCloser) *GobClientCodec {
 	encBuf := bufio.NewWriter(rwc)
+	dec := gob.NewDecoder(rwc)
+	enc := gob.NewEncoder(encBuf)
+
 	return &GobClientCodec{
-		rwc:    rwc,
-		dec:    gob.NewDecoder(rwc),
-		enc:    gob.NewEncoder(encBuf),
-		encBuf: encBuf,
+		rwc:      rwc,
+		dec:      dec,
+		enc:      enc,
+		encBuf:   encBuf,
+		encGzBuf: nil,
 	}
 }
