@@ -3,10 +3,12 @@ package client
 import (
 	"encoding/base64"
 	"fmt"
+	tsxdbRpc "github.com/RobinUS2/tsxdb/rpc"
 	"github.com/RobinUS2/tsxdb/rpc/types"
 	"github.com/RobinUS2/tsxdb/tools"
 	"github.com/pkg/errors"
 	insecureRand "math/rand"
+	"net"
 	"net/rpc"
 	"strings"
 	"sync"
@@ -62,7 +64,18 @@ func (client *Instance) GetConnection() (managedConnection *ManagedConnection, e
 }
 
 func (client *Instance) NewClient() (*ManagedConnection, error) {
-	rpcClient, err := rpc.Dial("tcp", client.opts.ListenHost+fmt.Sprintf(":%d", client.opts.ListenPort))
+	// open connection
+	address := client.opts.ListenHost + fmt.Sprintf(":%d", client.opts.ListenPort)
+	conn, err := net.Dial("tcp", address)
+	if err != nil {
+		return nil, err
+	}
+
+	// codec
+	codec := tsxdbRpc.NewGobClientCodec(conn)
+
+	// client
+	rpcClient := rpc.NewClientWithCodec(codec)
 	if err != nil {
 		return nil, err
 	}

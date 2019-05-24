@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"github.com/RobinUS2/tsxdb/rpc"
 	"log"
 	"net"
 	"sync"
@@ -59,11 +60,9 @@ func (instance *Instance) closeRpc() error {
 }
 
 func (instance *Instance) ServeConn(conn net.Conn) {
+	// register connection
 	instance.RegisterConn(conn)
 	atomic.AddInt64(&instance.pendingRequests, 1)
-	//log.Printf("connection from %v", conn.RemoteAddr())
-	instance.rpc.ServeConn(conn)
-	atomic.AddInt64(&instance.pendingRequests, -1)
 
 	// auth timeout
 	go func() {
@@ -72,4 +71,13 @@ func (instance *Instance) ServeConn(conn net.Conn) {
 		_ = conn.Close()
 		instance.RemoveConn(conn)
 	}()
+
+	// buffered writer
+	srv := rpc.NewGobServerCodec(conn)
+
+	// serve
+	instance.rpc.ServeCodec(srv)
+
+	// unregister
+	atomic.AddInt64(&instance.pendingRequests, -1)
 }
