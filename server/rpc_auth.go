@@ -70,7 +70,7 @@ func (endpoint *AuthEndpoint) Execute(args *types.AuthRequest, resp *types.AuthR
 		}
 
 		// auth stats
-		atomic.AddUint64(&endpoint.server.numAuthentications)
+		atomic.AddUint64(&endpoint.server.numAuthentications, 1)
 	}
 
 	resp.Error = nil
