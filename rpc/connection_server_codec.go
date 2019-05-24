@@ -55,11 +55,12 @@ func (c *GobServerCodec) Close() error {
 	return c.rwc.Close()
 }
 
-func NewGobServerCodec(rwc io.ReadWriteCloser, dec *gob.Decoder, enc *gob.Encoder, encBuf *bufio.Writer) *GobServerCodec {
+func NewGobServerCodec(rwc io.ReadWriteCloser) *GobServerCodec {
+	encBuf := bufio.NewWriter(rwc)
 	return &GobServerCodec{
 		rwc:    rwc,
-		dec:    dec,
-		enc:    enc,
+		dec:    gob.NewDecoder(rwc),
+		enc:    gob.NewEncoder(encBuf),
 		encBuf: encBuf,
 	}
 }
