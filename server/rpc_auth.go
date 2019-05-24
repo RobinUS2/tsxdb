@@ -10,6 +10,7 @@ import (
 	"github.com/RobinUS2/tsxdb/tools"
 	insecureRand "math/rand"
 	"sync/atomic"
+	"time"
 )
 
 func init() {
@@ -58,10 +59,17 @@ func (endpoint *AuthEndpoint) Execute(args *types.AuthRequest, resp *types.AuthR
 		resp.SessionSecret = base64.StdEncoding.EncodeToString(token)
 
 		// store in server
-		// @todo token expiry, this leaks memory
 		endpoint.server.sessionTokensMux.Lock()
 		endpoint.server.sessionTokens[resp.SessionId] = token
 		endpoint.server.sessionTokensMux.Unlock()
+
+		// very simplistic way of getting rid of the tokens later
+		go func() {
+			time.Sleep(ConnectionTimeout + (1 * time.Second))
+			endpoint.server.sessionTokensMux.Lock()
+			delete(endpoint.server.sessionTokens, resp.SessionId)
+			endpoint.server.sessionTokensMux.Unlock()
+		}()
 	} else {
 		// stage 2
 		if err := endpoint.server.validateSession(args.SessionTicket); err != nil {

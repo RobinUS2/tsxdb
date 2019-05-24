@@ -10,6 +10,8 @@ import (
 	"time"
 )
 
+const ConnectionTimeout = 60 * time.Second
+
 func (instance *Instance) StartListening() error {
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", instance.opts.ListenPort))
 	if err != nil {
@@ -66,7 +68,7 @@ func (instance *Instance) ServeConn(conn net.Conn) {
 
 	// auth timeout
 	go func() {
-		time.Sleep(60 * time.Second)
+		time.Sleep(ConnectionTimeout)
 		//log.Printf("check auth from %v", conn.RemoteAddr())
 		_ = conn.Close()
 		instance.RemoveConn(conn)
