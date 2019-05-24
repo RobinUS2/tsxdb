@@ -130,7 +130,6 @@ func (session *Session) Handle(typedLine InputLine) (err error) {
 	} else if command == redisRangeFromSortedSetCommand {
 		// get from serie
 		// ZRANGEBYSCORE abc 10 20
-		// @todo ZRANGEBYSCORE abc -inf +inf should return all values
 		seriesName := tokens[1]
 		from, _ := strconv.ParseUint(tokens[2], 10, 64)
 		if from == 0 && strings.ToLower(tokens[2]) == "-inf" {

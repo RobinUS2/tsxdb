@@ -5,7 +5,6 @@ import (
 )
 
 type IMetadata interface {
-	// @todo params, responses etc
 	CreateOrUpdateSeries(*CreateSeries) *CreateSeriesResult // create/update new series (batch)
 	SearchSeries(*SearchSeries) *SearchSeriesResult         // search one or multiple series by tags
 	DeleteSeries(*DeleteSeries) *DeleteSeriesResult         // remove series (batch)
