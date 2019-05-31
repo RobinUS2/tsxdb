@@ -55,14 +55,14 @@ func (instance *AutoBatchWriter) initBatch() {
 	atomic.StoreUint64(&instance.currentSize, 0)
 }
 
-func (instance *AutoBatchWriter) flush() error {
+func (instance *AutoBatchWriter) Flush() error {
 	// empty ?
 	size := atomic.LoadUint64(&instance.currentSize)
 	if size < 1 {
 		return nil
 	}
 
-	// lock flush
+	// lock Flush
 	instance.flushMux.Lock()
 	defer instance.flushMux.Unlock()
 
@@ -103,10 +103,10 @@ func (instance *AutoBatchWriter) AddToBatch(series *Series, ts uint64, v float64
 		return err
 	}
 	instance.batchMux.Unlock()
-	// check size, for auth flush
+	// check size, for auth Flush
 	newSize := atomic.AddUint64(&instance.currentSize, 1)
 	if newSize >= instance.batchSize {
-		return instance.flush()
+		return instance.Flush()
 	}
 	return nil
 }
@@ -121,7 +121,7 @@ func (instance *AutoBatchWriter) startFlusher() {
 			if deltaT < instance.timeoutMs {
 				continue
 			}
-			if err := instance.flush(); err != nil {
+			if err := instance.Flush(); err != nil {
 				if instance.errors == nil {
 					panic(err)
 				}
