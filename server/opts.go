@@ -6,8 +6,21 @@ import (
 
 type Opts struct {
 	rpc.OptsConnection `yaml:"connection"`
-	TelnetPort         int    `yaml:"telnet_port"`
-	TelnetHost         string `yaml:"telnet_host"`
+	TelnetPort         int                 `yaml:"telnet_port"`
+	TelnetHost         string              `yaml:"telnet_host"`
+	Backends           []BackendOpts       `yaml:"backends"`
+	BackendStrategy    BackendStrategyOpts `yaml:"backendStrategy"`
+}
+
+type BackendOpts struct {
+	Type       string                 `yaml:"type"`       // e.g. memory, redis
+	Identifier string                 `yaml:"identifier"` // unique name
+	Options    map[string]interface{} `yaml:"options"`    // backend specific options
+}
+
+type BackendStrategyOpts struct {
+	Type    string                 `yaml:"type"`    // e.g. simple
+	Options map[string]interface{} `yaml:"options"` // strategy specific options
 }
 
 func NewOpts() *Opts {

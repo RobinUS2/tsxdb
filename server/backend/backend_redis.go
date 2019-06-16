@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-const redisType = TypeBackend("redis")
+const RedisType = TypeBackend("redis")
 const timestampBucketSize = 86400 * 1000 // 1 day in milliseconds
 
 var redisNoConnForNamespaceErr = errors.New("no connection for namespace")
@@ -27,7 +27,7 @@ type RedisBackend struct {
 }
 
 func (instance *RedisBackend) Type() TypeBackend {
-	return redisType
+	return RedisType
 }
 
 func (instance *RedisBackend) getDataKey(ctx Context, timestamp uint64) string {

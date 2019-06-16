@@ -97,11 +97,29 @@ func (instance *Instance) Init() error {
 		}
 	}
 
-	// testing backend strategy in memory
-	// @todo from config
-	instance.backendSelector = backend.NewSelector()
-	myBackend := backend.NewMemoryBackend()
+	// default backend?
+	if len(instance.opts.Backends) < 1 {
+		// default backend memory
+		log.Printf("WARN no backends defined, creating default non-persistent embedded memory backend")
+		instance.opts.Backends = []BackendOpts{
+			{
+				Identifier: backend.DefaultIdentifier,
+				Type:       backend.MemoryType.String(),
+			},
+		}
+	}
+
+	// create backends
+	log.Printf("backends opts %+v", instance.opts.Backends)
+	backends := make([]backend.IAbstractBackend, 0)
+	for _, backendOpt := range instance.opts.Backends {
+		backends = append(backends, backend.Factory(backendOpt.Type, backendOpt.Options))
+	}
+	// @todo construct from config
+	myBackend := backends[0].(backend.AbstractBackendWithMetadata) // @todo more dynamic
+	log.Printf("backend strategy opts %+v", instance.opts.BackendStrategy)
 	myStrategy := backend.NewSimpleStrategy(myBackend)
+	instance.backendSelector = backend.NewSelector()
 	if err := instance.backendSelector.AddStrategy(myStrategy); err != nil {
 		return err
 	}

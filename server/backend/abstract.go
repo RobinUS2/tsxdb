@@ -27,3 +27,9 @@ type AbstractBackendWithMetadata interface {
 }
 
 type TypeBackend string
+
+func (t TypeBackend) String() string {
+	return string(t)
+}
+
+const DefaultIdentifier = "default"
