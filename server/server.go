@@ -111,7 +111,6 @@ func (instance *Instance) Init() error {
 	}
 
 	// create backends
-	log.Printf("backends opts %+v", instance.opts.Backends)
 	backends := make([]backend.IAbstractBackend, 0)
 	for _, backendOpt := range instance.opts.Backends {
 		b := backend.InstanceFactory(backendOpt.Type, backendOpt.Options)
@@ -125,7 +124,6 @@ func (instance *Instance) Init() error {
 	}
 
 	// backend strategy
-	log.Printf("backend strategy opts %+v", instance.opts.BackendStrategy)
 	if len(strings.TrimSpace(instance.opts.BackendStrategy.Type)) < 1 {
 		instance.opts.BackendStrategy.Type = backend.SimpleStrategyType.String()
 	}
