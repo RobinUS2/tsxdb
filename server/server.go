@@ -113,12 +113,23 @@ func (instance *Instance) Init() error {
 	log.Printf("backends opts %+v", instance.opts.Backends)
 	backends := make([]backend.IAbstractBackend, 0)
 	for _, backendOpt := range instance.opts.Backends {
-		backends = append(backends, backend.Factory(backendOpt.Type, backendOpt.Options))
+		b := backend.InstanceFactory(backendOpt.Type, backendOpt.Options)
+		if b == nil {
+			log.Printf("failed to construct backend %+v", backendOpt)
+			continue
+		}
+		backends = append(backends, b)
 	}
-	// @todo construct from config
-	myBackend := backends[0].(backend.AbstractBackendWithMetadata) // @todo more dynamic
+	if len(backends) > 1 {
+		return errors.New("no more than 1 backend supported for now")
+	}
+
+	// backend strategy
 	log.Printf("backend strategy opts %+v", instance.opts.BackendStrategy)
-	myStrategy := backend.NewSimpleStrategy(myBackend)
+	myStrategy := backend.StrategyInstanceFactory(instance.opts.BackendStrategy.Type, instance.opts.BackendStrategy.Options)
+	myStrategy.SetBackends(backends)
+
+	// backend selector
 	instance.backendSelector = backend.NewSelector()
 	if err := instance.backendSelector.AddStrategy(myStrategy); err != nil {
 		return err
@@ -130,6 +141,9 @@ func (instance *Instance) Init() error {
 	}
 
 	// metadata
+	// @todo construct from config
+	firstBackend := backends[0]
+	myBackend := firstBackend.(backend.AbstractBackendWithMetadata) // @todo more dynamic
 	instance.metaStore = backend.NewMetadata(myBackend)
 
 	// link back to the system
