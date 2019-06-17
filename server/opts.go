@@ -15,6 +15,7 @@ type Opts struct {
 type BackendOpts struct {
 	Type       string                 `yaml:"type"`       // e.g. memory, redis
 	Identifier string                 `yaml:"identifier"` // unique name
+	Metadata   bool                   `yaml:"metadata"`   // if true, this will store the metadata
 	Options    map[string]interface{} `yaml:"options"`    // backend specific options
 }
 

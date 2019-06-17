@@ -105,6 +105,7 @@ func (instance *Instance) Init() error {
 			{
 				Identifier: backend.DefaultIdentifier,
 				Type:       backend.MemoryType.String(),
+				Metadata:   true,
 			},
 		}
 	}
@@ -115,8 +116,7 @@ func (instance *Instance) Init() error {
 	for _, backendOpt := range instance.opts.Backends {
 		b := backend.InstanceFactory(backendOpt.Type, backendOpt.Options)
 		if b == nil {
-			log.Printf("failed to construct backend %+v", backendOpt)
-			continue
+			panic(fmt.Sprintf("failed to construct backend %+v", backendOpt))
 		}
 		backends = append(backends, b)
 	}
@@ -126,6 +126,9 @@ func (instance *Instance) Init() error {
 
 	// backend strategy
 	log.Printf("backend strategy opts %+v", instance.opts.BackendStrategy)
+	if len(strings.TrimSpace(instance.opts.BackendStrategy.Type)) < 1 {
+		instance.opts.BackendStrategy.Type = backend.SimpleStrategyType.String()
+	}
 	myStrategy := backend.StrategyInstanceFactory(instance.opts.BackendStrategy.Type, instance.opts.BackendStrategy.Options)
 	myStrategy.SetBackends(backends)
 
@@ -141,17 +144,33 @@ func (instance *Instance) Init() error {
 	}
 
 	// metadata
-	// @todo construct from config
-	firstBackend := backends[0]
-	myBackend := firstBackend.(backend.AbstractBackendWithMetadata) // @todo more dynamic
-	instance.metaStore = backend.NewMetadata(myBackend)
+	var metadataBackend backend.AbstractBackendWithMetadata
+	for i, backendInstance := range backends {
+		backendOpts := instance.opts.Backends[i]
+		if !backendOpts.Metadata {
+			continue
+		}
+		if typed, ok := backendInstance.(backend.AbstractBackendWithMetadata); ok {
+			metadataBackend = typed
+		} else {
+			panic(fmt.Sprintf("backend %+v claims incorrectly to be able to store metadata", backendOpts))
+		}
+	}
+	if metadataBackend == nil {
+		return errors.New("no metadata backend defined")
+	}
+	instance.metaStore = backend.NewMetadata(metadataBackend)
 
-	// link back to the system
-	myBackend.SetReverseApi(instance.metaStore)
+	// link backends back to the system
+	for _, backendInstance := range backends {
+		backendInstance.SetReverseApi(instance.metaStore)
+	}
 
-	// init backend
-	if err := myBackend.Init(); err != nil {
-		return err
+	// init backends
+	for _, backendInstance := range backends {
+		if err := backendInstance.Init(); err != nil {
+			return err
+		}
 	}
 
 	// stats ticker
