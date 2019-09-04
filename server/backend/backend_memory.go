@@ -62,6 +62,14 @@ func (instance *MemoryBackend) Write(context ContextWrite, timestamps []uint64, 
 	return nil
 }
 
+func (instance *MemoryBackend) GetSeriesMeta(s Series) *SeriesMetadata {
+	instance.seriesMux.RLock()
+	v := instance.series[s]
+	instance.seriesMux.RUnlock()
+	return v
+}
+
+// this does NOT lock the instance.data variable
 func (instance *MemoryBackend) __notLockedInitMaps(context Context, autoCreate bool) (available bool) {
 	namespace := Namespace(context.Namespace)
 	if _, found := instance.data[namespace]; !found {
@@ -79,7 +87,7 @@ func (instance *MemoryBackend) __notLockedInitMaps(context Context, autoCreate b
 	}
 
 	// data exists, fetch metadata
-	meta := instance.series[Series(context.Series)]
+	meta := instance.GetSeriesMeta(series)
 	if meta == nil {
 		panic("missing metadata")
 	}
