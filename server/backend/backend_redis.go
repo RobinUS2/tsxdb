@@ -40,14 +40,14 @@ func (instance *RedisBackend) Write(context ContextWrite, timestamps []uint64, v
 	if conn == nil {
 		return redisNoConnForNamespaceErr
 	}
-	keyValues := make(map[string][]*redis.Z)
+	keyValues := make(map[string][]redis.Z)
 	for idx, timestamp := range timestamps {
 		// determine key
 		key := instance.getDataKey(context.Context, timestamp)
 
 		// init key
 		if keyValues[key] == nil {
-			keyValues[key] = make([]*redis.Z, 0)
+			keyValues[key] = make([]redis.Z, 0)
 		}
 
 		// value
@@ -57,7 +57,7 @@ func (instance *RedisBackend) Write(context ContextWrite, timestamps []uint64, v
 		tsPadded := float64(timestamp) + (rand.Float64() * maxPaddingSize)
 
 		// member
-		member := &redis.Z{
+		member := redis.Z{
 			Score:  tsPadded,                                            // Sorted sets are sorted by their score in an ascending way. The same element only exists a single time, no repeated elements are permitted.
 			Member: FloatToString(value) + fmt.Sprintf(":%f", tsPadded), // must be string and unique
 		}
@@ -109,7 +109,7 @@ func (instance *RedisBackend) Read(context ContextRead) (res ReadResult) {
 	keys := instance.getKeysInRange(context)
 	var resultMap map[uint64]float64
 	for _, key := range keys {
-		read := conn.ZRangeByScoreWithScores(key, &redis.ZRangeBy{
+		read := conn.ZRangeByScoreWithScores(key, redis.ZRangeBy{
 			Min: FloatToString(float64(context.From)),
 			Max: FloatToString(float64(context.To)),
 		})
