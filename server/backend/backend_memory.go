@@ -43,7 +43,11 @@ func (instance *MemoryBackend) Write(context ContextWrite, timestamps []uint64, 
 	instance.dataMux.Lock()
 
 	// init maps
-	instance.__notLockedInitMaps(context.Context, true)
+	if _, err := instance.__notLockedInitMaps(context.Context, true); err != nil {
+		// unlock to prevent dead-lock
+		instance.dataMux.Unlock()
+		return err
+	}
 
 	// execute writes
 	for idx, timestamp := range timestamps {
@@ -70,18 +74,18 @@ func (instance *MemoryBackend) GetSeriesMeta(s Series) *SeriesMetadata {
 }
 
 // this does NOT lock the instance.data variable
-func (instance *MemoryBackend) __notLockedInitMaps(context Context, autoCreate bool) (available bool) {
+func (instance *MemoryBackend) __notLockedInitMaps(context Context, autoCreate bool) (available bool, err error) {
 	namespace := Namespace(context.Namespace)
 	if _, found := instance.data[namespace]; !found {
 		if !autoCreate {
-			return false
+			return false, nil
 		}
 		instance.data[namespace] = make(map[Series]map[Timestamp]float64)
 	}
 	series := Series(context.Series)
 	if _, found := instance.data[namespace][series]; !found {
 		if !autoCreate {
-			return false
+			return false, nil
 		}
 		instance.data[namespace][series] = make(map[Timestamp]float64)
 	}
@@ -89,8 +93,8 @@ func (instance *MemoryBackend) __notLockedInitMaps(context Context, autoCreate b
 	// data exists, fetch metadata
 	meta := instance.GetSeriesMeta(series)
 	if meta == nil {
-		// this could happen in case of a restart of the server (while the client still believes the series is already initalized)
-		panic("missing metadata")
+		// this could happen in case of a restart of the server (while the client still believes the series is already initialized)
+		return false, types.RpcErrorBackendMetadataNotFound.Error()
 	}
 
 	// ttl of series
@@ -107,14 +111,14 @@ func (instance *MemoryBackend) __notLockedInitMaps(context Context, autoCreate b
 				},
 			})
 			if res.Error != nil {
-				// @todo deal with in other way
-				panic(res.Error)
+				// @todo deal with in other way ?
+				return false, res.Error
 			}
-			return false
+			return false, nil
 		}
 	}
 
-	return true
+	return true, nil
 }
 
 func nowSeconds() uint64 {
@@ -127,7 +131,13 @@ func (instance *MemoryBackend) Read(context ContextRead) (res ReadResult) {
 	namespace := Namespace(context.Namespace)
 	seriesId := Series(context.Series)
 	instance.dataMux.RLock()
-	if !instance.__notLockedInitMaps(context.Context, false) {
+	available, err := instance.__notLockedInitMaps(context.Context, false)
+	if err != nil {
+		res.Error = err
+		instance.dataMux.RUnlock()
+		return
+	}
+	if !available {
 		// not available in the store
 		res.Error = ErrNoDataFound
 		instance.dataMux.RUnlock()
@@ -308,13 +318,29 @@ func (instance *MemoryBackend) DeleteSeries(ops *DeleteSeries) (result *DeleteSe
 	return
 }
 
+func (instance *MemoryBackend) Clear() error {
+	instance.seriesMux.Lock()
+	instance.dataMux.Lock()
+	instance.data = map[Namespace]map[Series]map[Timestamp]float64{}
+	instance.series = map[Series]*SeriesMetadata{}
+	instance.seriesIdCounter = 0
+	instance.dataMux.Unlock()
+	instance.seriesMux.Unlock()
+	return nil
+}
+
 func (instance *MemoryBackend) Init() error {
 	return nil
 }
 
 func NewMemoryBackend() *MemoryBackend {
-	return &MemoryBackend{
+	m := &MemoryBackend{
 		data:   make(map[Namespace]map[Series]map[Timestamp]float64),
 		series: make(map[Series]*SeriesMetadata),
 	}
+	if err := m.Clear(); err != nil {
+		// clear should always work for in-memory
+		panic(err)
+	}
+	return m
 }

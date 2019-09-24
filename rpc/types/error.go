@@ -12,6 +12,7 @@ var RpcErrorNumTimeValuePairsMisMatch RpcError = "mismatch between number of tim
 var RpcErrorNoValues RpcError = "no values"
 var RpcErrorMissingSeriesId RpcError = "missing series id"
 var RpcErrorBackendStrategyNotFound RpcError = "no backend strategy found"
+var RpcErrorBackendMetadataNotFound RpcError = "missing metadata"
 
 func (err RpcError) String() string {
 	return string(err)

@@ -41,6 +41,10 @@ type Instance struct {
 	Stats
 }
 
+func (instance *Instance) MetaStore() backend.IMetadata {
+	return instance.metaStore
+}
+
 type Stats struct {
 	numCalls             uint64
 	numValuesWritten     uint64

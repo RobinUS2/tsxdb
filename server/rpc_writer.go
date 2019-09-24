@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"github.com/RobinUS2/tsxdb/rpc/types"
 	"github.com/RobinUS2/tsxdb/server/backend"
 	"sync/atomic"
@@ -20,6 +21,13 @@ func NewWriterEndpoint() *WriterEndpoint {
 }
 
 func (endpoint *WriterEndpoint) Execute(args *types.WriteRequest, resp *types.WriteResponse) error {
+	// deal with panics, else the whole RPC server could crash
+	defer func() {
+		if r := recover(); r != nil {
+			resp.Error = types.WrapErrorPointer(fmt.Errorf("%s", r))
+		}
+	}()
+
 	// auth
 	if err := endpoint.server.validateSession(args.SessionTicket); err != nil {
 		resp.Error = &types.RpcErrorAuthFailed

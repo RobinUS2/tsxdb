@@ -17,6 +17,11 @@ func (series *Series) Create() (id uint64, err error) {
 	return series.Init(conn)
 }
 
+func (series *Series) ResetInit() {
+	// setting the ID to 0 means metadata will be exchanged with server again after next call to series.Init()
+	atomic.StoreUint64(&series.id, 0)
+}
+
 func (series *Series) Init(conn *ManagedConnection) (id uint64, err error) {
 	// fast path
 	id = atomic.LoadUint64(&series.id)
