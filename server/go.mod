@@ -17,7 +17,7 @@ replace github.com/RobinUS2/tsxdb/tools => ../tools
 replace github.com/RobinUS2/tsxdb/telnet => ../telnet
 
 require (
-	github.com/RobinUS2/tsxdb/rpc v0.0.0-20190524101516-1d4a260b1271
+	github.com/RobinUS2/tsxdb/rpc v0.0.0-20190924121018-2ae17e334935
 	github.com/RobinUS2/tsxdb/telnet v0.0.0-20190523130403-80b35d96abae
 	github.com/RobinUS2/tsxdb/tools v0.0.0-20190518132317-4b1ff7c46623
 	github.com/bsm/redis-lock v8.0.0+incompatible
