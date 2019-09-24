@@ -133,7 +133,6 @@ func (instance *MemoryBackend) Read(context ContextRead) (res ReadResult) {
 		return
 	}
 	series := instance.data[namespace][seriesId]
-	instance.dataMux.RUnlock()
 
 	// prune
 	var pruned map[uint64]float64
@@ -151,6 +150,9 @@ func (instance *MemoryBackend) Read(context ContextRead) (res ReadResult) {
 		// truncate timestamp to get rid of the padded decimals
 		pruned[uint64(ts)] = value
 	}
+
+	// unlock series data
+	instance.dataMux.RUnlock()
 
 	res.Results = pruned
 
