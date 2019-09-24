@@ -31,7 +31,7 @@ func (endpoint *AuthEndpoint) Execute(args *types.AuthRequest, resp *types.AuthR
 	// deal with panics, else the whole RPC server could crash
 	defer func() {
 		if r := recover(); r != nil {
-			resp.Error = types.WrapErrorPointer(errors.New(fmt.Sprintf("%s", r)))
+			resp.Error = types.WrapErrorPointer(fmt.Errorf("%s", r))
 		}
 	}()
 

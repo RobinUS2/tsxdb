@@ -76,7 +76,13 @@ func (batch *BatchWriter) Execute() (res WriteResult) {
 	}
 	if response.Error != nil {
 		if *response.Error == types.RpcErrorBackendMetadataNotFound {
-			panic("retransmit metadata")
+			// metadata not found, re-init so that clients send metadata again to server
+			for _, item := range batch.items {
+				item.series.ResetInit()
+				_, _ = item.series.Init(conn)
+			}
+			// re-execute
+			return batch.Execute()
 		}
 		res.Error = response.Error.Error()
 		return

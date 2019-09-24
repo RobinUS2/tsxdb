@@ -1,7 +1,6 @@
 package server
 
 import (
-	"errors"
 	"fmt"
 	"github.com/RobinUS2/tsxdb/rpc/types"
 	"github.com/RobinUS2/tsxdb/server/backend"
@@ -25,7 +24,7 @@ func (endpoint *ReaderEndpoint) Execute(args *types.ReadRequest, resp *types.Rea
 	// deal with panics, else the whole RPC server could crash
 	defer func() {
 		if r := recover(); r != nil {
-			resp.Error = types.WrapErrorPointer(errors.New(fmt.Sprintf("%s", r)))
+			resp.Error = types.WrapErrorPointer(fmt.Errorf("%s", r))
 		}
 	}()
 
