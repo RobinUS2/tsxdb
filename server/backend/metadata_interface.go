@@ -8,6 +8,7 @@ type IMetadata interface {
 	CreateOrUpdateSeries(*CreateSeries) *CreateSeriesResult // create/update new series (batch)
 	SearchSeries(*SearchSeries) *SearchSeriesResult         // search one or multiple series by tags
 	DeleteSeries(*DeleteSeries) *DeleteSeriesResult         // remove series (batch)
+	Clear() error                                           // clear all data, mainly used for testing
 }
 
 type CreateSeries struct {

@@ -470,6 +470,10 @@ func (instance *RedisBackend) Init() error {
 	return nil
 }
 
+func (instance *RedisBackend) Clear() error {
+	return errors.New("backend redis does not support clearing, this is supposed to be only used for testing")
+}
+
 func NewRedisBackend(opts *RedisOpts) *RedisBackend {
 	return &RedisBackend{
 		opts: opts,

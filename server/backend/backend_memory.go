@@ -89,8 +89,8 @@ func (instance *MemoryBackend) __notLockedInitMaps(context Context, autoCreate b
 	// data exists, fetch metadata
 	meta := instance.GetSeriesMeta(series)
 	if meta == nil {
-		// this could happen in case of a restart of the server (while the client still believes the series is already initalized)
-		panic("missing metadata")
+		// this could happen in case of a restart of the server (while the client still believes the series is already initialized)
+		panic(types.RpcErrorBackendMetadataNotFound)
 	}
 
 	// ttl of series
@@ -308,13 +308,29 @@ func (instance *MemoryBackend) DeleteSeries(ops *DeleteSeries) (result *DeleteSe
 	return
 }
 
+func (instance *MemoryBackend) Clear() error {
+	instance.seriesMux.Lock()
+	instance.dataMux.Lock()
+	instance.data = map[Namespace]map[Series]map[Timestamp]float64{}
+	instance.series = map[Series]*SeriesMetadata{}
+	instance.seriesIdCounter = 0
+	instance.dataMux.Unlock()
+	instance.seriesMux.Unlock()
+	return nil
+}
+
 func (instance *MemoryBackend) Init() error {
 	return nil
 }
 
 func NewMemoryBackend() *MemoryBackend {
-	return &MemoryBackend{
+	m := &MemoryBackend{
 		data:   make(map[Namespace]map[Series]map[Timestamp]float64),
 		series: make(map[Series]*SeriesMetadata),
 	}
+	if err := m.Clear(); err != nil {
+		// clear should always work for in-memory
+		panic(err)
+	}
+	return m
 }

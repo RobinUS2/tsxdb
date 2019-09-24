@@ -398,6 +398,36 @@ func TestBatchWritePerformance(t *testing.T) {
 	_ = s.Shutdown()
 }
 
+// during a restart of the (memory) server it could be that metadata is lost, in such a way that clients need to re-transmit this
+func TestServerRestartClientResendMetadata(t *testing.T) {
+	// start server
+	s := NewTestServer(true, true)
+	c := NewTestClient(s)
+
+	series := c.Series("TestServerRestartClientResendMetadata")
+	result := series.Write(1, 1.0)
+	if result.Error != nil {
+		t.Error(result.Error)
+	}
+
+	// clear metadata
+	m := s.MetaStore()
+	if err := m.Clear(); err != nil {
+		t.Error(err)
+	}
+
+	// write again
+	{
+		result := series.Write(1, 1.0)
+		if result.Error != nil {
+			t.Error(result.Error)
+		}
+	}
+
+	c.Close()
+	_ = s.Shutdown()
+}
+
 func NewTestClient(server *server.Instance) *client.Instance {
 	opts := client.NewOpts()
 	if server != nil {

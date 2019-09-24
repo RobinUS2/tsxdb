@@ -6,6 +6,7 @@ import (
 	"crypto/sha512"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"github.com/RobinUS2/tsxdb/rpc/types"
 	"github.com/RobinUS2/tsxdb/tools"
 	insecureRand "math/rand"
@@ -27,6 +28,13 @@ func NewAuthEndpoint() *AuthEndpoint {
 }
 
 func (endpoint *AuthEndpoint) Execute(args *types.AuthRequest, resp *types.AuthResponse) error {
+	// deal with panics, else the whole RPC server could crash
+	defer func() {
+		if r := recover(); r != nil {
+			resp.Error = types.WrapErrorPointer(errors.New(fmt.Sprintf("%s", r)))
+		}
+	}()
+
 	nonce, _ := base64.StdEncoding.DecodeString(args.Nonce)
 	signature, _ := base64.StdEncoding.DecodeString(args.Signature)
 

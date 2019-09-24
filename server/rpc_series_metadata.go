@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"github.com/RobinUS2/tsxdb/rpc/types"
 	"github.com/RobinUS2/tsxdb/server/backend"
 	"github.com/pkg/errors"
@@ -22,6 +23,13 @@ func NewSeriesMetadataEndpoint() *SeriesMetadataEndpoint {
 }
 
 func (endpoint *SeriesMetadataEndpoint) Execute(args *types.SeriesMetadataRequest, resp *types.SeriesMetadataResponse) error {
+	// deal with panics, else the whole RPC server could crash
+	defer func() {
+		if r := recover(); r != nil {
+			resp.Error = types.WrapErrorPointer(errors.New(fmt.Sprintf("%s", r)))
+		}
+	}()
+
 	// auth
 	if err := endpoint.server.validateSession(args.SessionTicket); err != nil {
 		resp.Error = &types.RpcErrorAuthFailed

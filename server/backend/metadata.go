@@ -16,6 +16,10 @@ func (meta *Metadata) DeleteSeries(delete *DeleteSeries) *DeleteSeriesResult {
 	return meta.backend.DeleteSeries(delete)
 }
 
+func (meta *Metadata) Clear() error {
+	return meta.backend.Clear()
+}
+
 func NewMetadata(backend AbstractBackendWithMetadata) *Metadata {
 	return &Metadata{
 		backend: backend,

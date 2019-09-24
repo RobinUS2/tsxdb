@@ -1,6 +1,8 @@
 package server
 
 import (
+	"errors"
+	"fmt"
 	"github.com/RobinUS2/tsxdb/rpc/types"
 )
 
@@ -18,6 +20,13 @@ func NewNoOpEndpoint() *NoOpEndpoint {
 }
 
 func (endpoint *NoOpEndpoint) Execute(args *types.ReadRequest, resp *types.ReadResponse) error {
+	// deal with panics, else the whole RPC server could crash
+	defer func() {
+		if r := recover(); r != nil {
+			resp.Error = types.WrapErrorPointer(errors.New(fmt.Sprintf("%s", r)))
+		}
+	}()
+
 	// auth
 	if err := endpoint.server.validateSession(args.SessionTicket); err != nil {
 		resp.Error = &types.RpcErrorAuthFailed
