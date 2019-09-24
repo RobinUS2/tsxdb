@@ -89,6 +89,7 @@ func (instance *MemoryBackend) __notLockedInitMaps(context Context, autoCreate b
 	// data exists, fetch metadata
 	meta := instance.GetSeriesMeta(series)
 	if meta == nil {
+		// this could happen in case of a restart of the server (while the client still believes the series is already initalized)
 		panic("missing metadata")
 	}
 
