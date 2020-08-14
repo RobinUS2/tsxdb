@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/RobinUS2/tsxdb/rpc/types"
 	"github.com/RobinUS2/tsxdb/server/backend"
-	"github.com/go-redis/redis"
+	"github.com/go-redis/redis/v7"
 	"math"
 	"math/rand"
 	"strings"

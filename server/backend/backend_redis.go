@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/RobinUS2/tsxdb/rpc/types"
-	"github.com/bsm/redis-lock"
-	"github.com/go-redis/redis"
+	lock "github.com/bsm/redislock"
+	"github.com/go-redis/redis/v7"
 	"github.com/pkg/errors"
 	"math"
 	"math/rand"
@@ -40,14 +40,14 @@ func (instance *RedisBackend) Write(context ContextWrite, timestamps []uint64, v
 	if conn == nil {
 		return redisNoConnForNamespaceErr
 	}
-	keyValues := make(map[string][]redis.Z)
+	keyValues := make(map[string][]*redis.Z)
 	for idx, timestamp := range timestamps {
 		// determine key
 		key := instance.getDataKey(context.Context, timestamp)
 
 		// init key
 		if keyValues[key] == nil {
-			keyValues[key] = make([]redis.Z, 0)
+			keyValues[key] = make([]*redis.Z, 0)
 		}
 
 		// value
@@ -63,7 +63,7 @@ func (instance *RedisBackend) Write(context ContextWrite, timestamps []uint64, v
 		}
 
 		// add
-		keyValues[key] = append(keyValues[key], member)
+		keyValues[key] = append(keyValues[key], &member)
 	}
 
 	// execute
@@ -110,7 +110,7 @@ func (instance *RedisBackend) Read(context ContextRead) (res ReadResult) {
 	keys := instance.getKeysInRange(context)
 	var resultMap map[uint64]float64
 	for _, key := range keys {
-		read := conn.ZRangeByScoreWithScores(key, redis.ZRangeBy{
+		read := conn.ZRangeByScoreWithScores(key, &redis.ZRangeBy{
 			Min: FloatToString(float64(context.From)),
 			Max: FloatToString(float64(context.To)),
 		})
@@ -165,7 +165,7 @@ func (instance *RedisBackend) createOrUpdateSeries(identifier types.SeriesCreate
 	if res.Val() == "" {
 		// not existing
 		lockKey := "lock_" + seriesKey
-		createLock, err := lock.Obtain(conn, lockKey, nil)
+		createLock, err := lock.Obtain(conn, lockKey, 0, nil)
 		if err != nil || createLock == nil {
 			// fail to obtain lock
 			return result, errors.New(fmt.Sprintf("failed to obtain metadata lock %v", err))
@@ -175,7 +175,7 @@ func (instance *RedisBackend) createOrUpdateSeries(identifier types.SeriesCreate
 		// unlock
 		defer func() {
 			// unlock
-			if lockErr := createLock.Unlock(); err != nil {
+			if lockErr := createLock.Release(); err != nil {
 				err = lockErr
 				return
 			}
