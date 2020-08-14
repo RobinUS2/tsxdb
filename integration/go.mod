@@ -1,6 +1,6 @@
 module github.com/RobinUS2/tsxdb/integration
 
-go 1.12
+go 1.13
 
 replace github.com/RobinUS2/tsxdb/client => ../client
 

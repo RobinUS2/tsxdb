@@ -1,6 +1,6 @@
 module github.com/RobinUS2/tsxdb/server
 
-go 1.12
+go 1.13
 
 replace github.com/RobinUS2/tsxdb/rpc => ../rpc
 
