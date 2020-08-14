@@ -4,6 +4,8 @@ import (
 	"github.com/RobinUS2/tsxdb/rpc/types"
 )
 
+// @todo support batch read to amortize the overhead (network round-trip, authorization, etc) amongst many reads, probably just make it possible to chain multiple queries, the ReadRequest already supports it based on the arrays in there
+
 // for now just a read single
 func (series *Series) Read(q Query) (res QueryResult) {
 

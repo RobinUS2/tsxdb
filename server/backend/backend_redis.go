@@ -69,6 +69,7 @@ func (instance *RedisBackend) Write(context ContextWrite, timestamps []uint64, v
 	// execute
 	for key, members := range keyValues {
 		// execute
+		// @todo use pipelined redis transaction for reduced network round-trip and CPU usage
 		res := conn.ZAdd(key, members...)
 		if res.Err() != nil {
 			return res.Err()

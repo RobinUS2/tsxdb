@@ -13,6 +13,10 @@ import (
 
 const token = "verySecure123@#$"
 
+// @todo func TestBatchWritePerformanceRedis(t *testing.T) {
+// @todo func TestBatchReadPerformance(t *testing.T) {
+// @todo func TestBatchReadPerformanceRedis(t *testing.T) {
+
 func TestRun(t *testing.T) {
 	if err := integration.Run(); err != nil {
 		t.Error(err)
