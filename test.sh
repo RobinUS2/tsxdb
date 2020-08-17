@@ -8,8 +8,7 @@ for d in [^.]*/ ; do
 	go fmt ./...
 	go mod tidy -v
 	go vet ./...
-	go test -cover -race -v ./...
-	staticcheck -tests ./... # download from https://github.com/dominikh/go-tools/releases
+	staticcheck -tests=false ./... # download from https://github.com/dominikh/go-tools/releases
 	cd ..
 done
 
