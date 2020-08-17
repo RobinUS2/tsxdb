@@ -23,5 +23,6 @@ require (
 	github.com/bsm/redislock v0.5.0
 	github.com/go-redis/redis/v7 v7.2.0
 	github.com/pkg/errors v0.8.1
+	gopkg.in/yaml.v2 v2.2.4
 	k8s.io/apimachinery v0.0.0-20190515023456-b74e4c97951f
 )

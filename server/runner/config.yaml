@@ -4,3 +4,15 @@ connection:
   auth_token: "verySecure"
 telnet_port: 5555
 telnet_host: "0.0.0.0" # disable this if you want to listen only on localhost
+backends:
+  - type: redis
+    identifier: "<snip>"
+    metadata: true
+    options:
+      redis:
+        - type: cluster
+          addr: "<snip>"
+          port: 6379
+          password: "<snip>"
+          prefix: "r"
+

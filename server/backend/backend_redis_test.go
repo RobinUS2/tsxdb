@@ -18,8 +18,9 @@ func TestNewRedisBackendSingleConnection(t *testing.T) {
 	opts := &backend.RedisOpts{
 		ConnectionDetails: map[backend.Namespace]backend.RedisConnectionDetails{
 			backend.RedisDefaultConnectionNamespace: {
-				Addr: "localhost",
+				Addr: "127.0.0.1",
 				Port: 6379,
+				Type: backend.RedisCluster,
 			},
 		},
 	}
@@ -39,6 +40,7 @@ func TestNewRedisBackendMultiConnection(t *testing.T) {
 			backend.RedisDefaultConnectionNamespace: {
 				Addr: "localhost",
 				Port: 6379,
+				Type: backend.RedisCluster,
 			},
 			backend.Namespace(5): {
 				Addr:     "localhost",
