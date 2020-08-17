@@ -6,6 +6,7 @@ import (
 	"github.com/RobinUS2/tsxdb/rpc/types"
 	lock "github.com/bsm/redislock"
 	"github.com/go-redis/redis/v7"
+	"github.com/alicebob/miniredis/v2"
 	"github.com/pkg/errors"
 	"math"
 	"math/rand"
@@ -453,6 +454,16 @@ func (instance *RedisBackend) Init() error {
 				Password: details.Password, // no password set
 				DB:       details.Database, // use default DB
 			})
+		case RedisMemory:
+			miniRedis, err := miniredis.Run()
+			if err != nil {
+				panic(err)
+			}
+			client = redis.NewClient(&redis.Options{
+				Addr:     			miniRedis.Addr(),
+				Password: details.Password, // no password set
+				DB:       details.Database, // use default DB
+			})
 		default:
 			panic(fmt.Sprintf("type %s not supported", details.Type))
 		}
@@ -502,6 +513,7 @@ type RedisServerType string
 
 const RedisCluster = "cluster"
 const RedisServer = "server"
+const RedisMemory = "memory" // miniredis client
 
 type RedisConnectionDetails struct {
 	Type     RedisServerType //sentinel cluster server
