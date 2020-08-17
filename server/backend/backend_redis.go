@@ -4,18 +4,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/RobinUS2/tsxdb/rpc/types"
+	"github.com/alicebob/miniredis/v2"
 	lock "github.com/bsm/redislock"
 	"github.com/go-redis/redis/v7"
-	"github.com/alicebob/miniredis/v2"
 	"github.com/pkg/errors"
 	"math"
 	"math/rand"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const RedisType = TypeBackend("redis")
 const timestampBucketSize = 86400 * 1000 // 1 day in milliseconds
+const defaultExpiryTime = time.Minute    // default time one can lock redis
 
 var redisNoConnForNamespaceErr = errors.New("no connection for namespace")
 
@@ -166,7 +168,7 @@ func (instance *RedisBackend) createOrUpdateSeries(identifier types.SeriesCreate
 	if res.Val() == "" {
 		// not existing
 		lockKey := "lock_" + seriesKey
-		createLock, err := lock.Obtain(conn, lockKey, 0, nil)
+		createLock, err := lock.Obtain(conn, lockKey, defaultExpiryTime, nil)
 		if err != nil || createLock == nil {
 			// fail to obtain lock
 			return result, errors.New(fmt.Sprintf("failed to obtain metadata lock %v", err))
@@ -460,9 +462,8 @@ func (instance *RedisBackend) Init() error {
 				panic(err)
 			}
 			client = redis.NewClient(&redis.Options{
-				Addr:     			miniRedis.Addr(),
-				Password: details.Password, // no password set
-				DB:       details.Database, // use default DB
+				Addr: miniRedis.Addr(),
+				DB:   details.Database,
 			})
 		default:
 			panic(fmt.Sprintf("type %s not supported", details.Type))
