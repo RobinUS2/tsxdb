@@ -4,24 +4,27 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/RobinUS2/tsxdb/rpc/types"
-	"github.com/bsm/redis-lock"
-	"github.com/go-redis/redis"
+	"github.com/alicebob/miniredis/v2"
+	lock "github.com/bsm/redislock"
+	"github.com/go-redis/redis/v7"
 	"github.com/pkg/errors"
 	"math"
 	"math/rand"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const RedisType = TypeBackend("redis")
 const timestampBucketSize = 86400 * 1000 // 1 day in milliseconds
+const defaultExpiryTime = time.Minute    // default time one can lock redis
 
 var redisNoConnForNamespaceErr = errors.New("no connection for namespace")
 
 type RedisBackend struct {
 	opts *RedisOpts
 
-	connections []*redis.Client
+	connections []redis.UniversalClient
 
 	AbstractBackend
 }
@@ -40,14 +43,14 @@ func (instance *RedisBackend) Write(context ContextWrite, timestamps []uint64, v
 	if conn == nil {
 		return redisNoConnForNamespaceErr
 	}
-	keyValues := make(map[string][]redis.Z)
+	keyValues := make(map[string][]*redis.Z)
 	for idx, timestamp := range timestamps {
 		// determine key
 		key := instance.getDataKey(context.Context, timestamp)
 
 		// init key
 		if keyValues[key] == nil {
-			keyValues[key] = make([]redis.Z, 0)
+			keyValues[key] = make([]*redis.Z, 0)
 		}
 
 		// value
@@ -63,7 +66,7 @@ func (instance *RedisBackend) Write(context ContextWrite, timestamps []uint64, v
 		}
 
 		// add
-		keyValues[key] = append(keyValues[key], member)
+		keyValues[key] = append(keyValues[key], &member)
 	}
 
 	// execute
@@ -110,7 +113,7 @@ func (instance *RedisBackend) Read(context ContextRead) (res ReadResult) {
 	keys := instance.getKeysInRange(context)
 	var resultMap map[uint64]float64
 	for _, key := range keys {
-		read := conn.ZRangeByScoreWithScores(key, redis.ZRangeBy{
+		read := conn.ZRangeByScoreWithScores(key, &redis.ZRangeBy{
 			Min: FloatToString(float64(context.From)),
 			Max: FloatToString(float64(context.To)),
 		})
@@ -165,7 +168,7 @@ func (instance *RedisBackend) createOrUpdateSeries(identifier types.SeriesCreate
 	if res.Val() == "" {
 		// not existing
 		lockKey := "lock_" + seriesKey
-		createLock, err := lock.Obtain(conn, lockKey, nil)
+		createLock, err := lock.Obtain(conn, lockKey, defaultExpiryTime, nil)
 		if err != nil || createLock == nil {
 			// fail to obtain lock
 			return result, errors.New(fmt.Sprintf("failed to obtain metadata lock %v", err))
@@ -175,7 +178,7 @@ func (instance *RedisBackend) createOrUpdateSeries(identifier types.SeriesCreate
 		// unlock
 		defer func() {
 			// unlock
-			if lockErr := createLock.Unlock(); err != nil {
+			if lockErr := createLock.Release(); err != nil {
 				err = lockErr
 				return
 			}
@@ -424,7 +427,7 @@ func (instance *RedisBackend) DeleteSeries(ops *DeleteSeries) (result *DeleteSer
 	return
 }
 
-func (instance *RedisBackend) GetConnection(namespace Namespace) *redis.Client {
+func (instance *RedisBackend) GetConnection(namespace Namespace) redis.UniversalClient {
 	val := instance.connections[namespace]
 	if val != nil {
 		return val
@@ -436,14 +439,35 @@ func (instance *RedisBackend) GetConnection(namespace Namespace) *redis.Client {
 func (instance *RedisBackend) Init() error {
 	var minNamespace = Namespace(math.MaxInt32)
 	var maxNamespace = Namespace(math.MaxInt32 * -1)
-	clients := make(map[Namespace]*redis.Client)
+	clients := make(map[Namespace]redis.UniversalClient)
 	for namespace, details := range instance.opts.ConnectionDetails {
-		client := redis.NewClient(&redis.Options{
-			Addr:     fmt.Sprintf("%s:%d", details.Addr, details.Port),
-			Password: details.Password, // no password set
-			DB:       details.Database, // use default DB
-		})
-
+		var client redis.UniversalClient
+		switch details.Type {
+		case RedisCluster:
+			client = redis.NewClusterClient(&redis.ClusterOptions{
+				Addrs: []string{
+					fmt.Sprintf("%s:%d", details.Addr, details.Port),
+				},
+				Password: details.Password,
+			})
+		case RedisServer:
+			client = redis.NewClient(&redis.Options{
+				Addr:     fmt.Sprintf("%s:%d", details.Addr, details.Port),
+				Password: details.Password, // no password set
+				DB:       details.Database, // use default DB
+			})
+		case RedisMemory:
+			miniRedis, err := miniredis.Run()
+			if err != nil {
+				panic(err)
+			}
+			client = redis.NewClient(&redis.Options{
+				Addr: miniRedis.Addr(),
+				DB:   details.Database,
+			})
+		default:
+			panic(fmt.Sprintf("type %s not supported", details.Type))
+		}
 		// ping pong
 		_, err := client.Ping().Result()
 		if err != nil {
@@ -463,7 +487,7 @@ func (instance *RedisBackend) Init() error {
 	}
 
 	// convert to array to not have concurrent map access issues
-	instance.connections = make([]*redis.Client, maxNamespace-minNamespace+1)
+	instance.connections = make([]redis.UniversalClient, maxNamespace-minNamespace+1)
 	for k, v := range clients {
 		instance.connections[k] = v
 	}
@@ -486,7 +510,14 @@ type RedisOpts struct {
 	ConnectionDetails map[Namespace]RedisConnectionDetails
 }
 
+type RedisServerType string
+
+const RedisCluster = "cluster"
+const RedisServer = "server"
+const RedisMemory = "memory" // miniredis client
+
 type RedisConnectionDetails struct {
+	Type     RedisServerType //sentinel cluster server
 	Addr     string
 	Port     int
 	Password string

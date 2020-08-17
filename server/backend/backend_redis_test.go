@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/RobinUS2/tsxdb/rpc/types"
 	"github.com/RobinUS2/tsxdb/server/backend"
-	"github.com/go-redis/redis"
+	"github.com/go-redis/redis/v7"
 	"math"
 	"math/rand"
 	"strings"
@@ -18,8 +18,9 @@ func TestNewRedisBackendSingleConnection(t *testing.T) {
 	opts := &backend.RedisOpts{
 		ConnectionDetails: map[backend.Namespace]backend.RedisConnectionDetails{
 			backend.RedisDefaultConnectionNamespace: {
-				Addr: "localhost",
+				Addr: "127.0.0.1",
 				Port: 6379,
+				Type: backend.RedisMemory,
 			},
 		},
 	}
@@ -37,13 +38,11 @@ func TestNewRedisBackendMultiConnection(t *testing.T) {
 	opts := &backend.RedisOpts{
 		ConnectionDetails: map[backend.Namespace]backend.RedisConnectionDetails{
 			backend.RedisDefaultConnectionNamespace: {
-				Addr: "localhost",
-				Port: 6379,
+				Type: backend.RedisMemory,
 			},
 			backend.Namespace(5): {
-				Addr:     "localhost",
-				Port:     6379,
 				Database: 5,
+				Type:     backend.RedisMemory,
 			},
 		},
 	}

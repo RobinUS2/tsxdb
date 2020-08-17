@@ -1,3 +1,3 @@
 module github.com/RobinUS2/tsxdb/rpc
 
-go 1.12
+go 1.13
