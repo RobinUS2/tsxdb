@@ -77,9 +77,6 @@ func (instance *RedisBackend) Write(context ContextWrite, timestamps []uint64, v
 		if res.Err() != nil {
 			return res.Err()
 		}
-		if res.Val() != int64(len(members)) {
-			return errors.New("failed write count")
-		}
 	}
 
 	return nil
