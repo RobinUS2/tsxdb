@@ -363,14 +363,32 @@ func TestNewRedisBackendMultiConnection(t *testing.T) {
 		}
 
 		// check really removed
-		conn := b.GetConnection(1)
-		if conn == nil {
-			t.Error(conn)
+		{
+			conn := b.GetConnection(1)
+			if conn == nil {
+				t.Error(conn)
+			}
+			res := conn.Get(fmt.Sprintf("series_%d_%d_meta", 1, firstResult.Id))
+			if res.Err() != redis.Nil || res.Val() != "" {
+				t.Error(res.Err(), res.Val())
+			}
 		}
-		res := conn.Get(fmt.Sprintf("series_%d_%d_meta", 1, firstResult.Id))
-		if res.Err() != redis.Nil || res.Val() != "" {
-			t.Error(res.Err(), res.Val())
+		// check data removed
+		{
+			conn := b.GetConnection(1)
+			if conn == nil {
+				t.Error(conn)
+			}
+			res := conn.Keys("data_1-2-*")
+			for _, key := range res.Val() {
+				zrangeRes := conn.ZRange(key, 0, -1)
+				if len(zrangeRes.Val()) > 0 {
+					ttlRes := conn.PTTL(key)
+					t.Errorf("key %s still exists, ttl: %d, data: %v", key, ttlRes.Val().Microseconds(), zrangeRes.Val())
+				}
+			}
 		}
+
 	}
 	// end TTL test
 }
