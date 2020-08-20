@@ -69,13 +69,39 @@ func (instance *RedisBackend) Write(context ContextWrite, timestamps []uint64, v
 		keyValues[key] = append(keyValues[key], &member)
 	}
 
+	// meta
+	meta, err := instance.getMetadata(Namespace(context.Namespace), context.Series, false)
+	if err != nil || meta.Id < 1 {
+		return err
+	}
+
+	expireTime := time.Unix(int64(meta.TtlExpire), 0)
 	// execute
 	for key, members := range keyValues {
+		zRangeRes := conn.ZRange(key, 0, -1)
+		isNew := len(zRangeRes.Val()) == 0
+
+		if expireTime.Unix() > 0 && time.Since(expireTime) > 0 {
+			// key already expired, skip
+			continue
+		}
+
 		// execute
 		// @todo use pipelined redis transaction for reduced network round-trip and CPU usage
 		res := conn.ZAdd(key, members...)
 		if res.Err() != nil {
 			return res.Err()
+		}
+
+		if expireTime.Unix() > 0 {
+			if isNew {
+				conn.ExpireAt(key, expireTime)
+			}
+			ttlRes := conn.TTL(key)
+			if ttlRes.Val() == 0 {
+				// no ttl set, set again
+				conn.ExpireAt(key, expireTime)
+			}
 		}
 	}
 
@@ -419,7 +445,7 @@ func (instance *RedisBackend) DeleteSeries(ops *DeleteSeries) (result *DeleteSer
 			return
 		}
 
-		// @todo data keys
+		// data keys are deleted using ttl expire
 	}
 	return
 }
@@ -462,6 +488,15 @@ func (instance *RedisBackend) Init() error {
 				Addr: miniRedis.Addr(),
 				DB:   details.Database,
 			})
+			go func() {
+				// mini redis does not forward time, and thus never expires key.
+				// simple time forwarding
+				duration := time.Millisecond * 100
+				ticker := time.NewTicker(duration)
+				for range ticker.C {
+					miniRedis.FastForward(duration)
+				}
+			}()
 		default:
 			panic(fmt.Sprintf("type %s not supported", details.Type))
 		}
