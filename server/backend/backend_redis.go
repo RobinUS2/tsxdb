@@ -88,7 +88,7 @@ func (instance *RedisBackend) Write(context ContextWrite, timestamps []uint64, v
 			return res.Err()
 		}
 
-		if meta.TtlExpire > nowSeconds() {
+		if expireTime.Unix() > 0 {
 			if isNew {
 				conn.ExpireAt(key, expireTime)
 			}
