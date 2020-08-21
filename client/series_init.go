@@ -41,9 +41,10 @@ func (series *Series) Init(conn *ManagedConnection) (id uint64, err error) {
 	defer series.initMux.Unlock()
 
 	// check again already sent? (could be done during waiting of the lock)
-	if atomic.LoadUint64(&series.id) > 0 {
+	id = atomic.LoadUint64(&series.id)
+	if id > 0 {
 		// already initialised
-		return 0, nil
+		return id, nil
 	}
 
 	// request
