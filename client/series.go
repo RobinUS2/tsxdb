@@ -1,6 +1,8 @@
 package client
 
-import "sync"
+import (
+	"sync"
+)
 
 type Series struct {
 	client    *Instance
@@ -32,10 +34,20 @@ func (client *Instance) Series(name string, opts ...SeriesOpt) *Series {
 }
 
 func NewSeries(name string, client *Instance) *Series {
-	// @todo automatic singleton to prevent connection re-init every time if user does not
-	return &Series{
+	// automatic singleton to prevent connection re-init every time if user does not
+	if series := client.seriesPool.Get(name); series != nil {
+		return series
+	}
+
+	// create
+	series := &Series{
 		name:   name,
 		client: client,
 		id:     0, // will be populated on first usage
 	}
+
+	// set in pool
+	client.seriesPool.Set(name, series)
+
+	return series
 }

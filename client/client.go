@@ -6,11 +6,13 @@ type Instance struct {
 	opts           *Opts
 	connectionPool *sync.Pool
 	closing        bool
+	seriesPool     *SeriesPool
 }
 
 func New(opts *Opts) *Instance {
 	i := &Instance{
-		opts: opts,
+		opts:       opts,
+		seriesPool: NewSeriesPool(opts),
 	}
 	if err := i.initConnectionPool(); err != nil {
 		panic(err)
