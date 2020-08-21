@@ -116,7 +116,8 @@ func TestNew(t *testing.T) {
 
 	{
 		// auto batch
-		b := c.NewAutoBatchWriter(5, 100*time.Millisecond)
+		syncFlush := client.NewAutoBatchOptAsyncFlush(false)
+		b := c.NewAutoBatchWriter(5, 100*time.Millisecond, syncFlush)
 		if b == nil {
 			t.Error()
 		}
@@ -158,6 +159,68 @@ func TestNew(t *testing.T) {
 				t.Error(err)
 			}
 		}
+
+		// flushCount?
+		if atomic.LoadUint64(&flushCount) != 3 {
+			t.Error("should have flushCount", flushCount)
+		}
+
+		// close
+		if err := b.Close(); err != nil {
+			t.Error(err)
+		}
+	}
+
+	// ASYNC default
+	{
+		// auto batch
+		b := c.NewAutoBatchWriter(5, 100*time.Millisecond)
+		if b == nil {
+			t.Error()
+		}
+		if !b.AsyncFlush() {
+			t.Error("should be async by default")
+		}
+		var flushCount uint64
+		b.SetPostFlushFn(func() {
+			atomic.AddUint64(&flushCount, 1)
+		})
+
+		// series
+		series := c.Series("testSeries")
+		if err := b.AddToBatch(series, rand.Uint64(), rand.Float64()); err != nil {
+			t.Error(err)
+		}
+
+		// allow ticker to tick
+		time.Sleep(60 * time.Millisecond)
+
+		// check flush count, should still be zero
+		if b.FlushCount() != 0 {
+			t.Error(b.FlushCount())
+		}
+
+		// allow ticker to tick
+		time.Sleep(60 * time.Millisecond)
+
+		// check flush count, should still be higher
+		if b.FlushCount() != 1 {
+			t.Error(b.FlushCount())
+		}
+
+		// flushCount?
+		if atomic.LoadUint64(&flushCount) != 1 {
+			t.Error("should have flushCount", flushCount)
+		}
+
+		// hit limit
+		for i := 0; i < 10; i++ {
+			if err := b.AddToBatch(series, rand.Uint64(), rand.Float64()); err != nil {
+				t.Error(err)
+			}
+		}
+
+		time.Sleep(1 * time.Second) // give time to complete async flush @todo actually wait for it, but this is fine for now
 
 		// flushCount?
 		if atomic.LoadUint64(&flushCount) != 3 {

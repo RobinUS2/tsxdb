@@ -26,7 +26,12 @@ type AutoBatchWriter struct {
 	flushCount  uint64
 	lastFlush   uint64
 
-	errors chan error
+	errors     chan error
+	asyncFlush bool
+}
+
+func (instance *AutoBatchWriter) AsyncFlush() bool {
+	return instance.asyncFlush
 }
 
 // subscribe to this channel to prevent panics in the ticker
@@ -79,12 +84,38 @@ func (instance *AutoBatchWriter) Flush() error {
 	// copy batch
 	itemsCopy := append([]BatchItem{}, instance.batch.items...)
 	batchCopy := instance.client.NewBatchWriter()
-	batchCopy.items = itemsCopy
+	for _, itemCopy := range itemsCopy {
+		if err := batchCopy.AddToBatch(itemCopy.series, itemCopy.ts, itemCopy.v); err != nil {
+			return err
+		}
+	}
 
-	// execute
-	res := batchCopy.Execute()
-	if res.Error != nil {
-		return res.Error
+	// flush function
+	executeFn := func() error {
+		res := batchCopy.Execute()
+		if res.Error != nil {
+			return res.Error
+		}
+
+		// callback
+		if instance.postFlushFn != nil {
+			instance.postFlushFn()
+		}
+		return nil
+	}
+	if instance.asyncFlush {
+		// async
+		go func() {
+			err := executeFn()
+			if err != nil {
+				instance.errors <- err
+			}
+		}()
+	} else {
+		// blocking
+		if err := executeFn(); err != nil {
+			return err
+		}
 	}
 
 	// stats
@@ -93,11 +124,6 @@ func (instance *AutoBatchWriter) Flush() error {
 
 	// new batch
 	instance.initBatch()
-
-	// callback
-	if instance.postFlushFn != nil {
-		instance.postFlushFn()
-	}
 
 	return nil
 }
@@ -150,13 +176,29 @@ type AutoBatchOpt interface {
 	Apply(*AutoBatchWriter) error
 }
 
+type AutoBatchOptAsyncFlush struct {
+	val bool
+}
+
+func (opt *AutoBatchOptAsyncFlush) Apply(w *AutoBatchWriter) error {
+	w.asyncFlush = opt.val
+	return nil
+}
+
+func NewAutoBatchOptAsyncFlush(val bool) *AutoBatchOptAsyncFlush {
+	return &AutoBatchOptAsyncFlush{
+		val: val,
+	}
+}
+
 func (client *Instance) NewAutoBatchWriter(batchSize uint64, timeout time.Duration, opts ...AutoBatchOpt) *AutoBatchWriter {
 	autoBatchWriter := &AutoBatchWriter{
-		client:    client,
-		batchSize: batchSize,
-		timeoutMs: uint64(timeout.Nanoseconds() / nanoToMs),
-		lastFlush: nowMs(),
-		errors:    nil,
+		client:     client,
+		batchSize:  batchSize,
+		timeoutMs:  uint64(timeout.Nanoseconds() / nanoToMs),
+		lastFlush:  nowMs(),
+		errors:     nil,
+		asyncFlush: true, // default true, since also ran in ticker, can't monitor errors anyway
 	}
 	for _, opt := range opts {
 		if err := opt.Apply(autoBatchWriter); err != nil {
