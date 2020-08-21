@@ -433,6 +433,7 @@ func TestBatchWritePerformance(t *testing.T) {
 	s := NewTestServer(true, true)
 	c := NewTestClient(s)
 	startTime := time.Now()
+	totalValuesWritten := 0
 	const minTime = 1 * time.Second
 	const minIters = 100
 	const batchSize = 1000 // tuning this number increases throughput, seems to max out at around 100K value with throughput of 1.7MM/sec on 1 core @ MacBook Pro Feb '18, although that is not realistic so we leave it at 1000 for now
@@ -442,6 +443,7 @@ func TestBatchWritePerformance(t *testing.T) {
 		b := c.NewBatchWriter()
 		// batches
 		for j := 0; j < batchSize; j++ {
+			totalValuesWritten++
 			if err := b.AddToBatch(series, rand.Uint64(), rand.Float64()); err != nil {
 				t.Error(err)
 			}
@@ -459,7 +461,28 @@ func TestBatchWritePerformance(t *testing.T) {
 	tookMs := float64(time.Since(startTime).Nanoseconds()) / 1000000.0
 	tookMsEach := tookMs / float64(i*batchSize)
 	perSecond := 1000.0 / tookMsEach
-	t.Logf("write avg time %f.2ms (%d iterations - %.0f/second)", tookMsEach, i, perSecond)
+	numIterations := i + 1
+	t.Logf("write avg time %f.2ms (%d iterations - %.0f/second)", tookMsEach, numIterations, perSecond)
+
+	time.Sleep(1 * time.Second) // wait for async to flush @todo wait for it to really complete
+
+	stats := s.Statistics()
+	t.Logf("%+v totalValuesWritten %d", stats, totalValuesWritten)
+	if stats.NumValuesWritten() != uint64(totalValuesWritten) {
+		t.Errorf("lost writes %d vs %d", stats.NumValuesWritten(), totalValuesWritten)
+	}
+	if stats.NumSeriesCreated() != 1 {
+		t.Errorf("1 serie")
+	}
+	if stats.NumSeriesInitialised() != 0 {
+		t.Errorf("init is only if we redo an existing one")
+	}
+	if stats.NumAuthentications() != uint64(numIterations) {
+		t.Errorf("1 auth per flush %d vs %d", stats.NumAuthentications(), numIterations)
+	}
+	if stats.NumReads() != 0 {
+		t.Errorf("no reads")
+	}
 
 	c.Close()
 	_ = s.Shutdown()

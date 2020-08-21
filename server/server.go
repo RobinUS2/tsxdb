@@ -54,6 +54,30 @@ type Stats struct {
 	numReads             uint64
 }
 
+func (s Stats) NumReads() uint64 {
+	return s.numReads
+}
+
+func (s Stats) NumAuthentications() uint64 {
+	return s.numAuthentications
+}
+
+func (s Stats) NumSeriesInitialised() uint64 {
+	return s.numSeriesInitialised
+}
+
+func (s Stats) NumSeriesCreated() uint64 {
+	return s.numSeriesCreated
+}
+
+func (s Stats) NumValuesWritten() uint64 {
+	return s.numValuesWritten
+}
+
+func (s Stats) NumCalls() uint64 {
+	return s.numCalls
+}
+
 func (instance *Instance) Statistics() Stats {
 	return Stats{
 		numCalls:             atomic.LoadUint64(&instance.numCalls),
