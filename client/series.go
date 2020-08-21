@@ -46,6 +46,17 @@ func NewSeries(name string, client *Instance) *Series {
 		id:     0, // will be populated on first usage
 	}
 
+	// eager init?
+	if client.opts.EagerInitSeries {
+		go func() {
+			conn, err := client.GetConnection()
+			if err != nil {
+				return
+			}
+			_, _ = series.Init(conn)
+		}()
+	}
+
 	// set in pool
 	client.seriesPool.Set(name, series)
 
