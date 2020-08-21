@@ -50,11 +50,7 @@ func (client *Instance) Series(name string, opts ...SeriesOpt) *Series {
 	if client.opts.EagerInitSeries {
 		// async to not block it, errors are ignored, since this is just a best effort, will be done (and error-ed) in write anyway later if retried
 		go func() {
-			conn, err := client.GetConnection()
-			if err != nil {
-				return
-			}
-			_, _ = s.Init(conn)
+			_, _ = s.Create()
 		}()
 	}
 
