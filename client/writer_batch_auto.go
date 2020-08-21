@@ -141,13 +141,22 @@ func (instance *AutoBatchWriter) Close() error {
 	return nil
 }
 
-func (client *Instance) NewAutoBatchWriter(batchSize uint64, timeout time.Duration) *AutoBatchWriter {
+type AutoBatchOpt interface {
+	Apply(*AutoBatchWriter) error
+}
+
+func (client *Instance) NewAutoBatchWriter(batchSize uint64, timeout time.Duration, opts ...AutoBatchOpt) *AutoBatchWriter {
 	autoBatchWriter := &AutoBatchWriter{
 		client:    client,
 		batchSize: batchSize,
 		timeoutMs: uint64(timeout.Nanoseconds() / nanoToMs),
 		lastFlush: nowMs(),
 		errors:    nil,
+	}
+	for _, opt := range opts {
+		if err := opt.Apply(autoBatchWriter); err != nil {
+			panic(err)
+		}
 	}
 	autoBatchWriter.initBatch()
 	autoBatchWriter.startFlusher()
