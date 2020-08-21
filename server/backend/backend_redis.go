@@ -18,6 +18,7 @@ import (
 const RedisType = TypeBackend("redis")
 const timestampBucketSize = 86400 * 1000 // 1 day in milliseconds
 const defaultExpiryTime = time.Minute    // default time one can lock redis
+const metaDataExpireAdditionalSeconds = 600 // additional seconds the metadata keys can live
 
 var redisNoConnForNamespaceErr = errors.New("no connection for namespace")
 
@@ -383,7 +384,7 @@ func (instance *RedisBackend) getMetadata(namespace Namespace, id uint64, ignore
 	}
 
 	// ttl of series
-	if !ignoreExpiry && data.TtlExpire > 0 {
+	if !ignoreExpiry && data.TtlExpire + metaDataExpireAdditionalSeconds > 0  {
 		nowSeconds := nowSeconds()
 		if data.TtlExpire < nowSeconds {
 			// expired, remove it
