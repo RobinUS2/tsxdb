@@ -72,7 +72,7 @@ func (instance *RedisBackend) Write(context ContextWrite, timestamps []uint64, v
 	// meta
 	meta, err := instance.getMetadata(Namespace(context.Namespace), context.Series, false)
 	if err != nil || meta.Id < 1 {
-		return err
+		return nil
 	}
 
 	expireTime := time.Unix(int64(meta.TtlExpire), 0)
