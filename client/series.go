@@ -15,6 +15,10 @@ type Series struct {
 	initMux sync.Mutex
 }
 
+func (series *Series) Name() string {
+	return series.name
+}
+
 func (series *Series) TTL() uint {
 	return series.ttl
 }

@@ -406,9 +406,18 @@ func TestInitSeriesPerformance(t *testing.T) {
 	const minIters = 100
 	const writeValue = 10.1
 	var i int
+	seriesMap := make(map[string]bool)
+	numSeriesInited := 0
+	numSeriesCreated := 0
 	for i = 0; i < 1000*1000; i++ {
 		seriesId := i - (i % 10)
 		series := c.Series(fmt.Sprintf("benchmarkSeriesInitPerformance-%d", seriesId))
+		if _, found := seriesMap[series.Name()]; found {
+			numSeriesInited++
+		} else {
+			numSeriesCreated++
+			seriesMap[series.Name()] = true
+		}
 		result := series.Write(now+uint64(i), writeValue)
 		if result.Error != nil {
 			t.Error(result.Error)
@@ -423,6 +432,11 @@ func TestInitSeriesPerformance(t *testing.T) {
 	tookMsEach := tookMs / float64(i)
 	perSecond := 1000.0 / tookMsEach
 	t.Logf("init series (+1 write) avg time %f.2ms (%d iterations - %.0f/second)", tookMsEach, i, perSecond)
+	stats := s.Statistics()
+	t.Logf("%+v", stats)
+	if stats.NumSeriesCreated() != uint64(numSeriesCreated) {
+		t.Errorf("expected %d was %d", numSeriesCreated, stats.NumSeriesCreated())
+	}
 
 	c.Close()
 	_ = s.Shutdown()
