@@ -384,9 +384,9 @@ func (instance *RedisBackend) getMetadata(namespace Namespace, id uint64, ignore
 	}
 
 	// ttl of series
-	if !ignoreExpiry && data.TtlExpire + metaDataExpireAdditionalSeconds > 0  {
+	if !ignoreExpiry && data.TtlExpire > 0 {
 		nowSeconds := nowSeconds()
-		if data.TtlExpire < nowSeconds {
+		if data.TtlExpire + metaDataExpireAdditionalSeconds < nowSeconds {
 			// expired, remove it
 			res := instance.ReverseApi().DeleteSeries(&DeleteSeries{
 				Series: []types.SeriesIdentifier{
