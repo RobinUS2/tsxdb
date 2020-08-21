@@ -491,8 +491,8 @@ func TestBatchWritePerformance(t *testing.T) {
 	if stats.NumSeriesInitialised() != 0 {
 		t.Errorf("init is only if we redo an existing one")
 	}
-	if stats.NumAuthentications() != uint64(numIterations) {
-		t.Errorf("1 auth per flush %d vs %d", stats.NumAuthentications(), numIterations)
+	if stats.NumAuthentications() < uint64(numIterations) {
+		t.Errorf("at least 1 auth per flush %d vs %d", stats.NumAuthentications(), numIterations)
 	}
 	if stats.NumReads() != 0 {
 		t.Errorf("no reads")
