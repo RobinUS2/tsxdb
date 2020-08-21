@@ -56,6 +56,7 @@ func (instance *AutoBatchWriter) initBatch() {
 }
 
 func (instance *AutoBatchWriter) Flush() error {
+	// @todo this blocks AddToBatch until the flush is complete, make a copy of the batch and execute async instead
 	// empty ?
 	size := atomic.LoadUint64(&instance.currentSize)
 	if size < 1 {

@@ -36,6 +36,7 @@ func (series *Series) Init(conn *ManagedConnection) (id uint64, err error) {
 	}
 
 	// max 1 init at a time
+	// @todo allow concurrent, max X at a time
 	series.initMux.Lock()
 	defer series.initMux.Unlock()
 

@@ -32,6 +32,7 @@ func (client *Instance) Series(name string, opts ...SeriesOpt) *Series {
 }
 
 func NewSeries(name string, client *Instance) *Series {
+	// @todo automatic singleton to prevent connection re-init every time if user does not
 	return &Series{
 		name:   name,
 		client: client,
