@@ -12,6 +12,7 @@ type Series struct {
 	id        uint64
 	ttl       uint // in seconds, ~ 50.000 days
 	name      string
+	metaMux   sync.RWMutex
 
 	initMux sync.Mutex
 }
@@ -21,19 +22,31 @@ func (series *Series) Id() uint64 {
 }
 
 func (series *Series) Name() string {
-	return series.name
+	series.metaMux.RLock()
+	v := series.name
+	series.metaMux.RUnlock()
+	return v
 }
 
 func (series *Series) TTL() uint {
-	return series.ttl
+	series.metaMux.RLock()
+	v := series.ttl
+	series.metaMux.RUnlock()
+	return v
 }
 
 func (series *Series) Namespace() int {
-	return series.namespace
+	series.metaMux.RLock()
+	v := series.namespace
+	series.metaMux.RUnlock()
+	return v
 }
 
 func (series *Series) Tags() []string {
-	return series.tags
+	series.metaMux.RLock()
+	v := series.tags
+	series.metaMux.RUnlock()
+	return v
 }
 
 func (client *Instance) Series(name string, opts ...SeriesOpt) *Series {

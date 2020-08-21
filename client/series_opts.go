@@ -1,13 +1,13 @@
 package client
 
 func (series *Series) applyOpts(opts []SeriesOpt) {
-	series.initMux.Lock()
+	series.metaMux.Lock()
 	for _, opt := range opts {
 		if err := opt.Apply(series); err != nil {
 			panic(err)
 		}
 	}
-	series.initMux.Unlock()
+	series.metaMux.Unlock()
 }
 
 type SeriesOpt interface {
