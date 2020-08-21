@@ -15,6 +15,10 @@ type Series struct {
 	initMux sync.Mutex
 }
 
+func (series *Series) Name() string {
+	return series.name
+}
+
 func (series *Series) TTL() uint {
 	return series.ttl
 }
@@ -44,6 +48,18 @@ func NewSeries(name string, client *Instance) *Series {
 		name:   name,
 		client: client,
 		id:     0, // will be populated on first usage
+	}
+
+	// eager init?
+	if client.opts.EagerInitSeries {
+		// async to not block it, errors are ignored, since this is just a best effort, will be done (and error-ed) in write anyway later if retried
+		go func() {
+			conn, err := client.GetConnection()
+			if err != nil {
+				return
+			}
+			_, _ = series.Init(conn)
+		}()
 	}
 
 	// set in pool
