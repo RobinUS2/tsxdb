@@ -3,8 +3,6 @@ package client
 import (
 	"github.com/RobinUS2/tsxdb/rpc/types"
 	"github.com/pkg/errors"
-	"log"
-	"time"
 )
 
 type BatchWriter struct {
@@ -56,38 +54,27 @@ func (batch *BatchWriter) ToWriteRequest(conn *ManagedConnection) (request types
 
 func (batch *BatchWriter) Execute() (res WriteResult) {
 	// get
-	start := time.Now()
 	conn, err := batch.client.GetConnection()
 	if err != nil {
 		res.Error = err
 		return
 	}
-	log.Printf("connection get: %d", time.Since(start).Milliseconds())
 	defer panicOnErrorClose(conn.Close)
 
-	start = time.Now()
 	// to request
 	request, err := batch.ToWriteRequest(conn)
 	if err != nil {
 		res.Error = err
 		return
 	}
-	log.Printf("to request: %d", time.Since(start).Milliseconds())
-
-	start = time.Now()
 
 	// execute
 	var response *types.WriteResponse
 	if err := conn.client.Call(types.EndpointWriter.String()+"."+types.MethodName, request, &response); err != nil {
 		res.Error = err
-		log.Printf("call err: %d", time.Since(start).Milliseconds())
-
 		return
 	}
-	log.Printf("call: %d", time.Since(start).Milliseconds())
-
 	if response.Error != nil {
-		log.Printf("re execute")
 		if *response.Error == types.RpcErrorBackendMetadataNotFound {
 			// metadata not found, re-init so that clients send metadata again to server
 			for _, item := range batch.items {
@@ -101,8 +88,6 @@ func (batch *BatchWriter) Execute() (res WriteResult) {
 		return
 	}
 
-	start = time.Now()
-
 	// validate num persisted
 	res.NumPersisted = response.Num
 	expected := len(batch.items)
@@ -110,7 +95,7 @@ func (batch *BatchWriter) Execute() (res WriteResult) {
 		res.Error = errors.Wrapf(errClientValidationMismatchSent, "expected %d was %d", len(batch.items), res.NumPersisted)
 		return
 	}
-	log.Printf("done: %d", time.Since(start).Milliseconds())
+
 	return
 }
 
