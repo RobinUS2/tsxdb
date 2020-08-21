@@ -5,6 +5,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+// not concurrent, make sure to lock yourself or use one per go routine
+
 type BatchWriter struct {
 	client *Instance
 	items  []BatchItem

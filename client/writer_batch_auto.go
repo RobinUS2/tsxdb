@@ -76,8 +76,13 @@ func (instance *AutoBatchWriter) Flush() error {
 		return nil
 	}
 
+	// copy batch
+	itemsCopy := append([]BatchItem{}, instance.batch.items...)
+	batchCopy := instance.client.NewBatchWriter()
+	batchCopy.items = itemsCopy
+
 	// execute
-	res := instance.batch.Execute()
+	res := batchCopy.Execute()
 	if res.Error != nil {
 		return res.Error
 	}
