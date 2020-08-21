@@ -51,10 +51,10 @@ func (series *Series) Init(conn *ManagedConnection) (id uint64, err error) {
 	request := types.SeriesMetadataRequest{
 		SeriesCreateMetadata: types.SeriesCreateMetadata{
 			SeriesMetadata: types.SeriesMetadata{
-				Namespace: series.namespace,
-				Tags:      series.tags,
-				Name:      series.name,
-				Ttl:       series.ttl,
+				Namespace: series.Namespace(),
+				Tags:      series.Tags(),
+				Name:      series.Name(),
+				Ttl:       series.TTL(),
 			},
 			SeriesCreateIdentifier: types.SeriesCreateIdentifier(tools.RandomInsecureIdentifier()),
 		},
