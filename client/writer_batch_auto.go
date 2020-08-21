@@ -108,7 +108,7 @@ func (instance *AutoBatchWriter) Flush() error {
 		go func() {
 			err := executeFn()
 			if err != nil {
-				instance.errors <- err
+				instance.asyncError(err)
 			}
 		}()
 	} else {
@@ -143,6 +143,13 @@ func (instance *AutoBatchWriter) AddToBatch(series *Series, ts uint64, v float64
 	return nil
 }
 
+func (instance *AutoBatchWriter) asyncError(err error) {
+	if instance.errors == nil {
+		panic(err)
+	}
+	instance.errors <- err
+}
+
 func (instance *AutoBatchWriter) startFlusher() {
 	instance.ticker = time.NewTicker(time.Duration(instance.timeoutMs) * time.Millisecond / 10)
 	go func() {
@@ -154,10 +161,7 @@ func (instance *AutoBatchWriter) startFlusher() {
 				continue
 			}
 			if err := instance.Flush(); err != nil {
-				if instance.errors == nil {
-					panic(err)
-				}
-				instance.errors <- err
+				instance.asyncError(err)
 			}
 		}
 	}()
