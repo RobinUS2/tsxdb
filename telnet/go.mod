@@ -9,7 +9,7 @@ replace github.com/RobinUS2/tsxdb/client => ../client
 replace github.com/RobinUS2/tsxdb/server => ../server
 
 require (
-	github.com/RobinUS2/tsxdb/client v0.0.0-20200821120716-0392eb203806
+	github.com/RobinUS2/tsxdb/client v0.0.0-20200821121150-bc364e1911f4
 	github.com/RobinUS2/tsxdb/server v0.0.0-20190523121601-0130f23bf035
 	github.com/pkg/errors v0.9.1
 	github.com/reiver/go-oi v1.0.0

@@ -73,5 +73,5 @@ func (series *Series) Init(conn *ManagedConnection) (id uint64, err error) {
 	// store id
 	atomic.StoreUint64(&series.id, response.Id)
 
-	return series.id, nil
+	return response.Id, nil
 }

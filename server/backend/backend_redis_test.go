@@ -7,6 +7,7 @@ import (
 	"github.com/go-redis/redis/v7"
 	"math"
 	"math/rand"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -314,6 +315,22 @@ func TestNewRedisBackendMultiConnection(t *testing.T) {
 			}
 		}
 
+		// a few more values
+		for i := 0; i < 100; i++ {
+			now := uint64(i) + 1 + uint64(time.Now().Unix()*1000)
+			writeVal := rand.Float64()
+			{
+				if err := b.Write(backend.ContextWrite{
+					Context: backend.Context{
+						Namespace: 1,
+						Series:    firstResult.Id,
+					},
+				}, []uint64{now}, []float64{writeVal}); err != nil {
+					t.Error(err)
+				}
+			}
+		}
+
 		// @todo inspect TTL meta
 
 		// read
@@ -328,6 +345,9 @@ func TestNewRedisBackendMultiConnection(t *testing.T) {
 			})
 			if res.Error != nil {
 				t.Error(res.Error)
+			}
+			if len(res.Results) != 1 {
+				t.Errorf("expect 1 result %+v", res.Results)
 			}
 			var ts uint64
 			var val float64
@@ -395,5 +415,28 @@ func TestNewRedisBackendMultiConnection(t *testing.T) {
 func CompareFloat(a float64, b float64, tolerance float64, err func()) {
 	if math.Abs(a-b) > tolerance {
 		err()
+	}
+}
+
+func TestFloatToString(t *testing.T) {
+	tests := map[string]float64{
+		".1":            0.1,
+		".123456":       0.123456,
+		".123457":       0.123456789,      // truncated to 6 digits and rounded
+		"123456.123457": 123456.123456789, // truncated to 6 digits and rounded
+		"123456.1":      123456.1,
+	}
+	for expected, float := range tests {
+		res := backend.FloatToString(float)
+		if res != expected {
+			t.Errorf("expected '%s' was '%s'", expected, res)
+		}
+		parsedFloat, err := strconv.ParseFloat(res, 64)
+		if err != nil {
+			t.Error(err)
+		}
+		CompareFloat(parsedFloat, float, floatTolerance, func() {
+			t.Error("value mismatch", parsedFloat, float)
+		})
 	}
 }
