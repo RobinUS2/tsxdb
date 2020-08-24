@@ -17,7 +17,7 @@ func TestGetKeyScoreMember(t *testing.T) {
 	const ts = 1598261325123
 	const value = 1.234
 	key, score, member := b.getKeyScoreAndMember(ctx, ts, value)
-	if key != "d_2-123-1598227200000" {
+	if key != "data_2-123-1598227200000" {
 		t.Error()
 	}
 	if fmt.Sprintf("%f", score) != "1598261325123.060547" {
