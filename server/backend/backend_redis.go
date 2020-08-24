@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"math"
 	"math/rand"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -17,7 +18,9 @@ import (
 
 const RedisType = TypeBackend("redis")
 const timestampBucketSize = 86400 * 1000 // 1 day in milliseconds
-const defaultExpiryTime = time.Minute    // default time one can lock redis
+var timestampBucketSizeStrLength = len(fmt.Sprintf("%d", timestampBucketSize))
+
+const defaultExpiryTime = time.Minute // default time one can lock redis
 
 var redisNoConnForNamespaceErr = errors.New("no connection for namespace")
 
@@ -33,9 +36,20 @@ func (instance *RedisBackend) Type() TypeBackend {
 	return RedisType
 }
 
-func (instance *RedisBackend) getDataKey(ctx Context, timestamp uint64) string {
+func (instance *RedisBackend) getDataKey(ctx Context, timestamp uint64) (string, uint64) {
 	timestampBucket := timestamp - (timestamp % timestampBucketSize)
-	return fmt.Sprintf("data_%d-%d-%d", ctx.Namespace, ctx.Series, timestampBucket)
+	return fmt.Sprintf("data_%d-%d-%d", ctx.Namespace, ctx.Series, timestampBucket), timestampBucket
+}
+
+func (instance *RedisBackend) getKeyScoreAndMember(context ContextWrite, timestamp uint64, value float64) (key string, score float64, member string) {
+	var tsBucket uint64
+	key, tsBucket = instance.getDataKey(context.Context, timestamp)
+	tsPadded := float64(timestamp) + (rand.Float64() * maxPaddingSize)
+	tsBucketPrefix := fmt.Sprintf("%d", tsBucket)
+	tsBucketPrefix = tsBucketPrefix[0 : len(tsBucketPrefix)-timestampBucketSizeStrLength]
+	tsPaddedStr := strings.TrimPrefix(fmt.Sprintf("%f", tsPadded), tsBucketPrefix)
+	member = FloatToString(value) + fmt.Sprintf(":%s", tsPaddedStr)
+	return key, tsPadded, member
 }
 
 func (instance *RedisBackend) Write(context ContextWrite, timestamps []uint64, values []float64) error {
@@ -45,24 +59,22 @@ func (instance *RedisBackend) Write(context ContextWrite, timestamps []uint64, v
 	}
 	keyValues := make(map[string][]*redis.Z)
 	for idx, timestamp := range timestamps {
+
+		// value
+		value := values[idx]
+
 		// determine key
-		key := instance.getDataKey(context.Context, timestamp)
+		key, score, setMember := instance.getKeyScoreAndMember(context, timestamp, value)
 
 		// init key
 		if keyValues[key] == nil {
 			keyValues[key] = make([]*redis.Z, 0)
 		}
 
-		// value
-		value := values[idx]
-
-		// to make sure we don't ever have colliding timestamps
-		tsPadded := float64(timestamp) + (rand.Float64() * maxPaddingSize)
-
 		// member
 		member := redis.Z{
-			Score:  tsPadded,                                            // Sorted sets are sorted by their score in an ascending way. The same element only exists a single time, no repeated elements are permitted.
-			Member: FloatToString(value) + fmt.Sprintf(":%f", tsPadded), // must be string and unique
+			Score:  score,     // Sorted sets are sorted by their score in an ascending way. The same element only exists a single time, no repeated elements are permitted.
+			Member: setMember, // must be string and unique
 		}
 
 		// add
@@ -108,18 +120,22 @@ func (instance *RedisBackend) Write(context ContextWrite, timestamps []uint64, v
 	return nil
 }
 
+var replaceLeadingZeroDot = regexp.MustCompile("^0\\.")
+
 func FloatToString(val float64) string {
 	// to convert a float number to a string, trim trailing zeros to save space
-	return strings.TrimRight(strconv.FormatFloat(val, 'f', 6, 64), "0")
+	return replaceLeadingZeroDot.ReplaceAllString(strings.TrimRight(strconv.FormatFloat(val, 'f', 6, 64), "0"), ".")
 }
 
-func (instance *RedisBackend) getKeysInRange(ctx ContextRead) []string {
+func (instance *RedisBackend) getKeysInRange(ctx ContextRead) ([]string, []uint64) {
 	keys := make([]string, 0)
+	tsBuckets := make([]uint64, 0)
 	for ts := ctx.From; ts < ctx.To; ts += timestampBucketSize {
-		key := instance.getDataKey(ctx.Context, ts)
+		key, tsBucket := instance.getDataKey(ctx.Context, ts)
 		keys = append(keys, key)
+		tsBuckets = append(tsBuckets, tsBucket)
 	}
-	return keys
+	return keys, tsBuckets
 }
 
 func (instance *RedisBackend) Read(context ContextRead) (res ReadResult) {
@@ -133,7 +149,7 @@ func (instance *RedisBackend) Read(context ContextRead) (res ReadResult) {
 	}
 
 	// read
-	keys := instance.getKeysInRange(context)
+	keys, _ := instance.getKeysInRange(context)
 	var resultMap map[uint64]float64
 	for _, key := range keys {
 		read := conn.ZRangeByScoreWithScores(key, &redis.ZRangeBy{
@@ -148,6 +164,9 @@ func (instance *RedisBackend) Read(context ContextRead) (res ReadResult) {
 		for _, value := range values {
 			member := value.Member.(string)
 			memberSplit := strings.Split(member, ":")
+			if len(memberSplit) != 2 {
+				panic("should always be 2 parts")
+			}
 			floatValue, err := strconv.ParseFloat(memberSplit[0], 64)
 			if err != nil {
 				res.Error = err
