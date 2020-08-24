@@ -17,9 +17,9 @@ replace github.com/RobinUS2/tsxdb/tools => ../tools
 replace github.com/RobinUS2/tsxdb/telnet => ../telnet
 
 require (
-	github.com/RobinUS2/tsxdb/rpc v0.0.0-20200821115332-b962b83da4f6
-	github.com/RobinUS2/tsxdb/telnet v0.0.0-20200821120716-0392eb203806
-	github.com/RobinUS2/tsxdb/tools v0.0.0-20200821115332-b962b83da4f6
+	github.com/RobinUS2/tsxdb/rpc v0.0.0-20200821121150-bc364e1911f4
+	github.com/RobinUS2/tsxdb/telnet v0.0.0-20200821121150-bc364e1911f4
+	github.com/RobinUS2/tsxdb/tools v0.0.0-20200821121150-bc364e1911f4
 	github.com/alicebob/miniredis/v2 v2.13.2
 	github.com/bsm/redislock v0.5.0
 	github.com/go-redis/redis/v7 v7.4.0

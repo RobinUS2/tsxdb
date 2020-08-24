@@ -38,7 +38,7 @@ func (instance *RedisBackend) Type() TypeBackend {
 
 func (instance *RedisBackend) getDataKey(ctx Context, timestamp uint64) (string, uint64) {
 	timestampBucket := timestamp - (timestamp % timestampBucketSize)
-	return fmt.Sprintf("data_%d-%d-%d", ctx.Namespace, ctx.Series, timestampBucket), timestampBucket
+	return fmt.Sprintf("d_%d-%d-%d", ctx.Namespace, ctx.Series, timestampBucket), timestampBucket
 }
 
 func (instance *RedisBackend) getKeyScoreAndMember(context ContextWrite, timestamp uint64, value float64) (key string, score float64, member string) {
@@ -120,7 +120,7 @@ func (instance *RedisBackend) Write(context ContextWrite, timestamps []uint64, v
 	return nil
 }
 
-var replaceLeadingZeroDot = regexp.MustCompile("^0\\.")
+var replaceLeadingZeroDot = regexp.MustCompile(`^0\.`)
 
 func FloatToString(val float64) string {
 	// to convert a float number to a string, trim trailing zeros to save space
