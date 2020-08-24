@@ -48,7 +48,7 @@ func (instance *RedisBackend) getKeyScoreAndMember(context ContextWrite, timesta
 	tsBucketPrefix := fmt.Sprintf("%d", tsBucket)
 	tsBucketPrefix = tsBucketPrefix[0 : len(tsBucketPrefix)-timestampBucketSizeStrLength]
 	tsPaddedStr := strings.TrimPrefix(fmt.Sprintf("%f", tsPadded), tsBucketPrefix)
-	member = FloatToString(value) + fmt.Sprintf(":%s", tsPaddedStr)
+	member = FloatToString(value) + fmt.Sprintf(":%s", tsPaddedStr) // must be string and unique, that's why we take the timestamp with random value
 	return key, tsPadded, member
 }
 
@@ -73,7 +73,7 @@ func (instance *RedisBackend) Write(context ContextWrite, timestamps []uint64, v
 
 		// member
 		member := redis.Z{
-			Score:  score,     // Sorted sets are sorted by their score in an ascending way. The same element only exists a single time, no repeated elements are permitted.
+			Score:  score,     // Sorted sets are sorted by their score in an ascending way. The same element only exists a single time, no repeated elements are permitted. The score is basically the timestamp of the write request.
 			Member: setMember, // must be string and unique
 		}
 
