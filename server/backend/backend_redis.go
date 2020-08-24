@@ -109,8 +109,8 @@ func (instance *RedisBackend) Write(context ContextWrite, timestamps []uint64, v
 }
 
 func FloatToString(val float64) string {
-	// to convert a float number to a string
-	return strconv.FormatFloat(val, 'f', 6, 64)
+	// to convert a float number to a string, trim trailing zeros to save space
+	return strings.TrimRight(strconv.FormatFloat(val, 'f', 6, 64), "0")
 }
 
 func (instance *RedisBackend) getKeysInRange(ctx ContextRead) []string {

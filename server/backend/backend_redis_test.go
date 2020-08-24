@@ -397,3 +397,19 @@ func CompareFloat(a float64, b float64, tolerance float64, err func()) {
 		err()
 	}
 }
+
+func TestFloatToString(t *testing.T) {
+	tests := map[string]float64{
+		"0.1":           0.1,
+		"0.123456":      0.123456,
+		"0.123457":      0.123456789,      // truncated to 6 digits and rounded
+		"123456.123457": 123456.123456789, // truncated to 6 digits and rounded
+		"123456.1":      123456.1,
+	}
+	for expected, float := range tests {
+		res := backend.FloatToString(float)
+		if res != expected {
+			t.Errorf("expected '%s' was '%s'", expected, res)
+		}
+	}
+}
