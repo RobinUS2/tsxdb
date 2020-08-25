@@ -135,7 +135,7 @@ func TestNewRedisBackendMultiConnection(t *testing.T) {
 
 	// simple write again
 	{
-		now := uint64(time.Now().Unix() * 1000)
+		now := uint64(time.Now().Unix()*1000) + 1000
 		writeVal := rand.Float64()
 		{
 			if err := b.Write(backend.ContextWrite{
