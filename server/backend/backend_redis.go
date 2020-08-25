@@ -9,7 +9,6 @@ import (
 	"github.com/go-redis/redis/v7"
 	"github.com/patrickmn/go-cache"
 	"github.com/pkg/errors"
-	"log"
 	"math"
 	"math/rand"
 	"regexp"
