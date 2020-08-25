@@ -17,6 +17,16 @@ func (multi *MultiQueryBuilder) AddQuery(queryBuilder *QueryBuilder) error {
 	if err != nil {
 		return err
 	}
+
+	seriesIds := make(map[uint64]bool)
+	for _, query := range multi.queries {
+		id := query.Series.Id()
+		if seriesIds[id] {
+			return fmt.Errorf("can only execute 1 query per series at this time") // needs refactoring of rpc results code which now returns the results by series id
+		}
+		seriesIds[id] = true
+	}
+
 	multi.queries = append(multi.queries, *query)
 	return nil
 }
