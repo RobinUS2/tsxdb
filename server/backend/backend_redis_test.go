@@ -123,12 +123,17 @@ func TestNewRedisBackendMultiConnection(t *testing.T) {
 	now := uint64(time.Now().Unix() * 1000)
 	writeVal := rand.Float64()
 	{
+		reqId := backend.NewRequestId()
 		if err := b.Write(backend.ContextWrite{
 			Context: backend.Context{
 				Namespace: 1,
 				Series:    idFirst,
+				RequestId: reqId,
 			},
 		}, []uint64{now}, []float64{writeVal}); err != nil {
+			t.Error(err)
+		}
+		if err := b.FlushPendingWrites(reqId); err != nil {
 			t.Error(err)
 		}
 	}
@@ -138,12 +143,17 @@ func TestNewRedisBackendMultiConnection(t *testing.T) {
 		now := uint64(time.Now().Unix()*1000) + 1000
 		writeVal := rand.Float64()
 		{
+			reqId := backend.NewRequestId()
 			if err := b.Write(backend.ContextWrite{
 				Context: backend.Context{
 					Namespace: 1,
 					Series:    idFirst,
+					RequestId: reqId,
 				},
 			}, []uint64{now}, []float64{writeVal}); err != nil {
+				t.Error(err)
+			}
+			if err := b.FlushPendingWrites(reqId); err != nil {
 				t.Error(err)
 			}
 		}
@@ -321,12 +331,17 @@ func TestNewRedisBackendMultiConnection(t *testing.T) {
 		now := uint64(time.Now().Unix() * 1000)
 		writeVal := rand.Float64()
 		{
+			reqId := backend.NewRequestId()
 			if err := b.Write(backend.ContextWrite{
 				Context: backend.Context{
 					Namespace: 1,
 					Series:    firstResult.Id,
+					RequestId: reqId,
 				},
 			}, []uint64{now}, []float64{writeVal}); err != nil {
+				t.Error(err)
+			}
+			if err := b.FlushPendingWrites(reqId); err != nil {
 				t.Error(err)
 			}
 		}
@@ -336,12 +351,17 @@ func TestNewRedisBackendMultiConnection(t *testing.T) {
 			now := uint64(i) + 1 + uint64(time.Now().Unix()*1000)
 			writeVal := rand.Float64()
 			{
+				reqId := backend.NewRequestId()
 				if err := b.Write(backend.ContextWrite{
 					Context: backend.Context{
 						Namespace: 1,
 						Series:    firstResult.Id,
+						RequestId: reqId,
 					},
 				}, []uint64{now}, []float64{writeVal}); err != nil {
+					t.Error(err)
+				}
+				if err := b.FlushPendingWrites(reqId); err != nil {
 					t.Error(err)
 				}
 			}

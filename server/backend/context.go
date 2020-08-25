@@ -4,6 +4,7 @@ type Context struct {
 	// details to determine context (e.g. series / metadata of series for persistence level)
 	Series    uint64
 	Namespace int
+	RequestId RequestId
 }
 
 type ContextBackend struct {

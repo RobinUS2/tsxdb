@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -35,6 +36,9 @@ type RedisBackend struct {
 	AbstractBackend
 
 	expireWrittenCache *cache.Cache // used to deduplicate expire writes (not always needed)
+
+	pipelines    map[RequestId]redis.Pipeliner
+	pipelinesMux sync.RWMutex
 }
 
 func (instance *RedisBackend) Type() TypeBackend {
@@ -57,7 +61,64 @@ func (instance *RedisBackend) getKeyScoreAndMember(context ContextWrite, timesta
 	return key, tsPadded, member
 }
 
+func (instance *RedisBackend) FlushPendingWrites(requestId RequestId) error {
+	if IsEmptyRequestId(requestId) {
+		return fmt.Errorf("empty request id %s", requestId)
+	}
+	// flush pipeline
+	instance.pipelinesMux.RLock()
+	v, found := instance.pipelines[requestId]
+	instance.pipelinesMux.RUnlock()
+	if !found {
+		return fmt.Errorf("missing pipeliner for request %s", requestId)
+	}
+
+	// remove once done
+	defer func() {
+		instance.pipelinesMux.Lock()
+		delete(instance.pipelines, requestId)
+		instance.pipelinesMux.Unlock()
+	}()
+
+	// execute buffer
+	if _, err := v.Exec(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (instance *RedisBackend) getPipeline(context ContextWrite) (redis.Pipeliner, error) {
+	// existing?
+	instance.pipelinesMux.RLock()
+	v, found := instance.pipelines[context.RequestId]
+	instance.pipelinesMux.RUnlock()
+	if found {
+		return v, nil
+	}
+
+	// redis connection
+	conn := instance.GetConnection(Namespace(context.Namespace))
+	if conn == nil {
+		return nil, redisNoConnForNamespaceErr
+	}
+
+	// pipeline, reduces (tcp) round-trip overhead, system calls, etc
+	pipeline := conn.Pipeline()
+
+	// store for use during this request
+	instance.pipelinesMux.Lock()
+	instance.pipelines[context.RequestId] = pipeline
+	instance.pipelinesMux.Unlock()
+
+	return pipeline, nil
+}
+
 func (instance *RedisBackend) Write(context ContextWrite, timestamps []uint64, values []float64) error {
+	if IsEmptyRequestId(context.RequestId) {
+		return fmt.Errorf("empty request id %s", context.RequestId)
+	}
+
 	keyValues := make(map[string][]*redis.Z)
 	for idx, timestamp := range timestamps {
 
@@ -88,14 +149,11 @@ func (instance *RedisBackend) Write(context ContextWrite, timestamps []uint64, v
 		return err
 	}
 
-	// redis connection
-	conn := instance.GetConnection(Namespace(context.Namespace))
-	if conn == nil {
-		return redisNoConnForNamespaceErr
+	// get redis pipeline
+	pipeline, err := instance.getPipeline(context)
+	if err != nil {
+		return err
 	}
-
-	// pipeline, reduces (tcp) round-trip overhead, system calls, etc
-	pipeline := conn.Pipeline()
 
 	// when to expire?
 	expireTime := time.Unix(int64(meta.TtlExpire), 0)
@@ -123,10 +181,7 @@ func (instance *RedisBackend) Write(context ContextWrite, timestamps []uint64, v
 		}
 	}
 
-	// execute transaction
-	if _, err := pipeline.Exec(); err != nil {
-		return err
-	}
+	// we do NOT execute the transaction here, we do that during final flush
 
 	return nil
 }
@@ -565,6 +620,7 @@ func NewRedisBackend(opts *RedisOpts) *RedisBackend {
 	return &RedisBackend{
 		opts:               opts,
 		expireWrittenCache: cache.New(60*time.Minute, 1*time.Minute),
+		pipelines:          make(map[RequestId]redis.Pipeliner),
 	}
 }
 

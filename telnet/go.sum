@@ -1,11 +1,11 @@
 github.com/OneOfOne/xxhash v1.2.8 h1:31czK/TI9sNkxIKfaUfGlU47BAxQ0ztGgd9vPyqimf8=
 github.com/OneOfOne/xxhash v1.2.8/go.mod h1:eZbhyaAYD41SGSSsnmcpxVoRiQ/MPUTjUdIIOT9Um7Q=
-github.com/RobinUS2/tsxdb/rpc v0.0.0-20200824100554-7dd869f40ec7 h1:8gBfRdU52KuPRkZEHnY4upZmNmGe0Vufy6y3SFBjNrs=
-github.com/RobinUS2/tsxdb/rpc v0.0.0-20200824100554-7dd869f40ec7/go.mod h1:sYnOeZVec2kj15YLK+6ocFDnzneo2/DrnmU8Exmkmlg=
 github.com/RobinUS2/tsxdb/rpc v0.0.0-20200825111516-afed105674ab h1:uG9OOXWFGzLTTwQpZFcE2rWfDXUSBjKSqBcsvT/51tY=
 github.com/RobinUS2/tsxdb/rpc v0.0.0-20200825111516-afed105674ab/go.mod h1:sYnOeZVec2kj15YLK+6ocFDnzneo2/DrnmU8Exmkmlg=
-github.com/RobinUS2/tsxdb/tools v0.0.0-20200825111516-afed105674ab h1:IbfA6CNOWa7Y/+tea1lPNZpdFUmZWEUgWvALL9mlRZA=
-github.com/RobinUS2/tsxdb/tools v0.0.0-20200825111516-afed105674ab/go.mod h1:iqc8gTwY6plHgH81UHJw427+Ry9j7j2xtKsBDcs9CKE=
+github.com/RobinUS2/tsxdb/rpc v0.0.0-20200825123711-1fbd1de93084 h1:J3qrZnXc34DHrNrbLIaPso7H7KPXFgW/GfIkSaBJrxQ=
+github.com/RobinUS2/tsxdb/rpc v0.0.0-20200825123711-1fbd1de93084/go.mod h1:sYnOeZVec2kj15YLK+6ocFDnzneo2/DrnmU8Exmkmlg=
+github.com/RobinUS2/tsxdb/tools v0.0.0-20200825123711-1fbd1de93084 h1:B2v5SkyetpWHZgUC+GH547A8/g+Xc6tPA1+od9TW3B4=
+github.com/RobinUS2/tsxdb/tools v0.0.0-20200825123711-1fbd1de93084/go.mod h1:h1LC8k0pR7OZVzHzSOHVpZw3uo0/gYWs2DEHhNEvYfc=
 github.com/alicebob/gopher-json v0.0.0-20200520072559-a9ecdc9d1d3a h1:HbKu58rmZpUGpz5+4FfNmIU+FmZg2P3Xaj2v2bfNWmk=
 github.com/alicebob/gopher-json v0.0.0-20200520072559-a9ecdc9d1d3a/go.mod h1:SGnFV6hVsYE877CKEZ6tDNTjaSXYUk6QqoIK6PrAtcc=
 github.com/alicebob/miniredis/v2 v2.13.2 h1:qHd8pHjZsgovOjOFH6JZAR3quqL3E6R4vWLALTLjSGc=
@@ -55,6 +55,8 @@ github.com/onsi/ginkgo v1.10.1/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+
 github.com/onsi/gomega v0.0.0-20190113212917-5533ce8a0da3/go.mod h1:ex+gbHU/CVuBBDIJjb2X0qEXbFg53c61hWP/1CpauHY=
 github.com/onsi/gomega v1.7.0 h1:XPnZz8VVBHjVsy1vzJmRwIcSwiUO+JFfrv/xGiigmME=
 github.com/onsi/gomega v1.7.0/go.mod h1:ex+gbHU/CVuBBDIJjb2X0qEXbFg53c61hWP/1CpauHY=
+github.com/patrickmn/go-cache v2.1.0+incompatible h1:HRMgzkcYKYpi3C8ajMPV8OFXaaRUnok+kx1WdO15EQc=
+github.com/patrickmn/go-cache v2.1.0+incompatible/go.mod h1:3Qf8kWWT7OJRJbdiICTKqZju1ZixQ/KpMGzzAfe6+WQ=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=

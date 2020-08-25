@@ -31,6 +31,11 @@ func (instance *MemoryBackend) Type() TypeBackend {
 	return MemoryType
 }
 
+func (instance *MemoryBackend) FlushPendingWrites(RequestId) error {
+	// not relevant for in-memory, all be done directly
+	return nil
+}
+
 func (instance *MemoryBackend) Write(context ContextWrite, timestamps []uint64, values []float64) error {
 	if len(timestamps) != len(values) {
 		return errors.New("mismatch pairs")
