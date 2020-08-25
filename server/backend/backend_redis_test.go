@@ -133,6 +133,22 @@ func TestNewRedisBackendMultiConnection(t *testing.T) {
 		}
 	}
 
+	// simple write again
+	{
+		now := uint64(time.Now().Unix() * 1000)
+		writeVal := rand.Float64()
+		{
+			if err := b.Write(backend.ContextWrite{
+				Context: backend.Context{
+					Namespace: 1,
+					Series:    idFirst,
+				},
+			}, []uint64{now}, []float64{writeVal}); err != nil {
+				t.Error(err)
+			}
+		}
+	}
+
 	// simple read
 	{
 		res := b.Read(backend.ContextRead{
