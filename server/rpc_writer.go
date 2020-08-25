@@ -34,6 +34,12 @@ func (endpoint *WriterEndpoint) Execute(args *types.WriteRequest, resp *types.Wr
 		return nil
 	}
 
+	// request ID to track this specific request
+	requestId := backend.NewRequestId()
+
+	// track backend instances for final flushes
+	backendInstances := make(map[backend.IAbstractBackend]bool)
+
 	var numTimesTotal int
 	for _, batchItem := range args.Series {
 		numTimes := len(batchItem.Times)
@@ -58,11 +64,13 @@ func (endpoint *WriterEndpoint) Execute(args *types.WriteRequest, resp *types.Wr
 		c := backend.ContextBackend{}
 		c.Series = batchItem.Id
 		c.Namespace = batchItem.Namespace
+		c.RequestId = requestId
 		backendInstance, err := endpoint.server.SelectBackend(c)
 		if err != nil {
 			resp.Error = &types.RpcErrorBackendStrategyNotFound
 			return nil
 		}
+		backendInstances[backendInstance] = true
 
 		// write
 		writeContext := backend.ContextWrite(c)
@@ -73,6 +81,16 @@ func (endpoint *WriterEndpoint) Execute(args *types.WriteRequest, resp *types.Wr
 			return nil
 		}
 	}
+
+	// flush backends
+	for backendInstance := range backendInstances {
+		if err := backendInstance.FlushPendingWrites(requestId); err != nil {
+			e := types.RpcError(err.Error())
+			resp.Error = &e
+			return nil
+		}
+	}
+
 	resp.Num = numTimesTotal
 
 	// basic stats

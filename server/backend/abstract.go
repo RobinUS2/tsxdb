@@ -3,6 +3,7 @@ package backend
 type IAbstractBackend interface {
 	Type() TypeBackend
 	Write(context ContextWrite, timestamps []uint64, values []float64) error
+	FlushPendingWrites(requestId RequestId) error
 	Read(context ContextRead) ReadResult
 	Init() error // should be called before first usage
 	SetReverseApi(IReverseApi)
