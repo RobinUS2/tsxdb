@@ -35,8 +35,7 @@ func (series *Series) Init(conn *ManagedConnection) (id uint64, err error) {
 		return 0, errors.New("missing connection")
 	}
 
-	// max 1 init at a time
-	// @todo allow concurrent, max X at a time
+	// max 1 init at a time for 1 series
 	series.initMux.Lock()
 	defer series.initMux.Unlock()
 

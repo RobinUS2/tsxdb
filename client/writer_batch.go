@@ -31,7 +31,7 @@ func (batch *BatchWriter) ToWriteRequest(conn *ManagedConnection) (request types
 		}
 		seriesTimestamps[seriesId] = append(seriesTimestamps[seriesId], item.ts)
 		seriesValues[seriesId] = append(seriesValues[seriesId], item.v)
-		seriesNamespace[seriesId] = item.series.namespace
+		seriesNamespace[seriesId] = item.series.Namespace()
 	}
 
 	// request (batch)

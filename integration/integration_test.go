@@ -96,6 +96,32 @@ func TestNew(t *testing.T) {
 		//t.Log(ts, value)
 	}
 
+	// batch read
+	{
+		multiQuery := c.MultiQueryBuilder()
+		{
+			someSeries := c.Series("a")
+			qb := someSeries.QueryBuilder().From(now - oneMinute).To(now + oneMinute)
+			if err := multiQuery.AddQuery(qb); err != nil {
+				t.Error(err)
+			}
+		}
+		{
+			someSeries := c.Series("b")
+			qb := someSeries.QueryBuilder().From(now - oneMinute).To(now + oneMinute)
+			if err := multiQuery.AddQuery(qb); err != nil {
+				t.Error(err)
+			}
+		}
+		res := multiQuery.Execute()
+		if res.Error != nil {
+			t.Error(res.Error)
+		}
+		if len(res.Results) != 2 {
+			t.Errorf("expected 2 results %+v", res.Results)
+		}
+	}
+
 	// empty name
 	{
 		series := c.Series("")
