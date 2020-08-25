@@ -1,7 +1,5 @@
 github.com/OneOfOne/xxhash v1.2.8 h1:31czK/TI9sNkxIKfaUfGlU47BAxQ0ztGgd9vPyqimf8=
 github.com/OneOfOne/xxhash v1.2.8/go.mod h1:eZbhyaAYD41SGSSsnmcpxVoRiQ/MPUTjUdIIOT9Um7Q=
-github.com/RobinUS2/tsxdb/client v0.0.0-20200824100554-7dd869f40ec7 h1:IxIZ0FQAfKl3in2D557cGLcfipg4HCvtNPJv+TRazHI=
-github.com/RobinUS2/tsxdb/client v0.0.0-20200824100554-7dd869f40ec7/go.mod h1:68QeAoQYHrO/Z3ATKg0I5ST+dxJg7P9Iy8mtVuo11Sg=
 github.com/RobinUS2/tsxdb/client v0.0.0-20200825123711-1fbd1de93084 h1:A+zAk082wJuUrEAMq+ZAVEixecOa30HE9djlhZSCT3o=
 github.com/RobinUS2/tsxdb/client v0.0.0-20200825123711-1fbd1de93084/go.mod h1:0/jB9JBV1cMTiwMWt2DZhe5iNh18rr9upM6dkogW600=
 github.com/alicebob/gopher-json v0.0.0-20200520072559-a9ecdc9d1d3a h1:HbKu58rmZpUGpz5+4FfNmIU+FmZg2P3Xaj2v2bfNWmk=
