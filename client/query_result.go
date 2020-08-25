@@ -3,6 +3,7 @@ package client
 import "sort"
 
 type QueryResult struct {
+	Series  *Series
 	Error   error
 	Results map[uint64]float64 // in random order due to Go map implementation, if you need sorted results call QueryResult.Iterator()
 }
