@@ -7,6 +7,7 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	lock "github.com/bsm/redislock"
 	"github.com/go-redis/redis/v7"
+	"github.com/patrickmn/go-cache"
 	"github.com/pkg/errors"
 	"math"
 	"math/rand"
@@ -15,6 +16,8 @@ import (
 	"strings"
 	"time"
 )
+
+const expireWrittenCacheDuration = 60 * time.Minute
 
 const RedisType = TypeBackend("redis")
 const timestampBucketSize = 86400 * 1000 // 1 day in milliseconds
@@ -30,6 +33,8 @@ type RedisBackend struct {
 	connections []redis.UniversalClient
 
 	AbstractBackend
+
+	expireWrittenCache *cache.Cache // used to deduplicate expire writes (not always needed)
 }
 
 func (instance *RedisBackend) Type() TypeBackend {
@@ -53,10 +58,6 @@ func (instance *RedisBackend) getKeyScoreAndMember(context ContextWrite, timesta
 }
 
 func (instance *RedisBackend) Write(context ContextWrite, timestamps []uint64, values []float64) error {
-	conn := instance.GetConnection(Namespace(context.Namespace))
-	if conn == nil {
-		return redisNoConnForNamespaceErr
-	}
 	keyValues := make(map[string][]*redis.Z)
 	for idx, timestamp := range timestamps {
 
@@ -87,34 +88,44 @@ func (instance *RedisBackend) Write(context ContextWrite, timestamps []uint64, v
 		return err
 	}
 
-	expireTime := time.Unix(int64(meta.TtlExpire), 0)
-	// execute
-	for key, members := range keyValues {
-		zRangeRes := conn.ZRange(key, 0, -1)
-		isNew := len(zRangeRes.Val()) == 0
+	// redis connection
+	conn := instance.GetConnection(Namespace(context.Namespace))
+	if conn == nil {
+		return redisNoConnForNamespaceErr
+	}
 
+	// pipeline, reduces (tcp) round-trip overhead, system calls, etc
+	pipeline := conn.Pipeline()
+
+	// when to expire?
+	expireTime := time.Unix(int64(meta.TtlExpire), 0)
+
+	// add commands to redis pipeline
+	for key, members := range keyValues {
 		if expireTime.Unix() > 0 && time.Since(expireTime) > 0 {
 			// key already expired, skip
 			continue
 		}
 
 		// execute
-		// @todo use pipelined redis transaction for reduced network round-trip and CPU usage
-		res := conn.ZAdd(key, members...)
+		res := pipeline.ZAdd(key, members...)
 		if res.Err() != nil {
 			return res.Err()
 		}
 
 		if expireTime.Unix() > 0 {
-			if isNew {
-				conn.ExpireAt(key, expireTime)
-			}
-			ttlRes := conn.TTL(key)
-			if ttlRes.Val() == 0 {
-				// no ttl set, set again
-				conn.ExpireAt(key, expireTime)
+			// deduplicate expire at, if we've recently done
+			expireWrittenCacheKey := fmt.Sprintf("%d", context.Series)
+			if _, found := instance.expireWrittenCache.Get(expireWrittenCacheKey); !found {
+				pipeline.ExpireAt(key, expireTime)
+				instance.expireWrittenCache.Set(expireWrittenCacheKey, true, expireWrittenCacheDuration)
 			}
 		}
+	}
+
+	// execute transaction
+	if _, err := pipeline.Exec(); err != nil {
+		return err
 	}
 
 	return nil
@@ -552,7 +563,8 @@ func (instance *RedisBackend) Clear() error {
 
 func NewRedisBackend(opts *RedisOpts) *RedisBackend {
 	return &RedisBackend{
-		opts: opts,
+		opts:               opts,
+		expireWrittenCache: cache.New(60*time.Minute, 1*time.Minute),
 	}
 }
 
