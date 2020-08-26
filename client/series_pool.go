@@ -2,6 +2,7 @@ package client
 
 import (
 	"github.com/karlseguin/ccache/v2"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -9,8 +10,17 @@ import (
 // series cache, makes sure initialised series are reused
 
 type SeriesPool struct {
-	hits uint64
-	lru  *ccache.Cache
+	eagerInitMux sync.Mutex
+	hits         uint64
+	lru          *ccache.Cache
+}
+
+const poolPrefix = "_"
+
+// Deprecated: only use for testing
+func (pool *SeriesPool) EvictCache() {
+	// we wipe the whole prefix instead of pool.lru.Clear since that is not concurrent
+	pool.lru.DeletePrefix(poolPrefix)
 }
 
 func (pool *SeriesPool) Hits() uint64 {
@@ -22,7 +32,7 @@ func (pool *SeriesPool) Count() int {
 }
 
 func (pool *SeriesPool) Get(name string) *Series {
-	item := pool.lru.Get(name)
+	item := pool.lru.Get(poolPrefix + name)
 	if item == nil {
 		return nil
 	}
@@ -34,7 +44,7 @@ func (pool *SeriesPool) Get(name string) *Series {
 }
 
 func (pool *SeriesPool) Set(name string, value *Series) {
-	pool.lru.Set(name, value, 24*time.Hour)
+	pool.lru.Set(poolPrefix+name, value, 24*time.Hour)
 }
 
 func NewSeriesPool(clientOpts *Opts) *SeriesPool {

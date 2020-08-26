@@ -7,11 +7,14 @@ import (
 	"github.com/RobinUS2/tsxdb/rpc/types"
 	"github.com/RobinUS2/tsxdb/tools"
 	"github.com/pkg/errors"
+	"log"
 	insecureRand "math/rand"
 	"net"
 	"net/rpc"
+	"runtime/debug"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -60,13 +63,29 @@ func (client *Instance) GetConnection() (managedConnection *ManagedConnection, e
 			return nil, err
 		}
 	}
+
+	// track timing
+	now := nowMs()
+	atomic.StoreUint64(&managedConnection.poolGet, now)
+
+	// track potential leakage (e.g not calling *ManagedConnection.Close )
+	if client.opts.OptsConnection.Debug {
+		const returnTimeout = 10 * time.Second
+		time.AfterFunc(returnTimeout, func() {
+			returned := atomic.LoadUint64(&managedConnection.poolReturn)
+			if returned < now {
+				panic(fmt.Sprintf("not returned connection after %s", returnTimeout))
+			}
+		})
+	}
+
 	return managedConnection, nil
 }
 
 func (client *Instance) NewClient() (*ManagedConnection, error) {
 	// open connection
 	address := client.opts.ListenHost + fmt.Sprintf(":%d", client.opts.ListenPort)
-	conn, err := net.Dial("tcp", address)
+	conn, err := net.DialTimeout("tcp", address, client.opts.OptsConnection.ConnectTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -93,9 +112,21 @@ type ManagedConnection struct {
 	authenticated bool
 	sessionId     int
 	sessionSecret []byte
+	poolGet       uint64
+	poolReturn    uint64
 }
 
 func (conn *ManagedConnection) Close() error {
+	// track slow usage
+	now := nowMs()
+	atomic.StoreUint64(&conn.poolReturn, now)
+	get := atomic.LoadUint64(&conn.poolGet)
+	took := nowMs() - get
+	if took > 10*1000 {
+		log.Printf("SLOW connection usage, taken at %d returned at %d took %d ms", get, now, took)
+		debug.PrintStack()
+	}
+
 	// keep alive?
 	if time.Now().Unix()-conn.created >= 60 {
 		// re-use
@@ -154,7 +185,7 @@ func (conn *ManagedConnection) auth(client *Instance) error {
 		// execute phase 1
 		resp, err := conn.executeAuthRequest(request)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "failed auth call #1")
 		}
 
 		// validate and parse session data
@@ -185,7 +216,7 @@ func (conn *ManagedConnection) auth(client *Instance) error {
 		request.SessionTicket.Signature = tools.HmacInt(sessionSecret, request.SessionTicket.Nonce)
 
 		if _, err := conn.executeAuthRequest(request); err != nil {
-			return err
+			return errors.Wrap(err, "failed auth call #2")
 		}
 		// store for next requests
 		conn.sessionId = sessionId

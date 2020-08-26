@@ -17,6 +17,7 @@ func (batch *BatchWriter) Size() int {
 }
 
 func (batch *BatchWriter) ToWriteRequest(conn *ManagedConnection) (request types.WriteRequest, err error) {
+	// Note: this function does not close the connection, need to do in function that uses it
 	seriesTimestamps := make(map[uint64][]uint64) // key of outer slice is the series id
 	seriesValues := make(map[uint64][]float64)    // key of outer slice is the series id
 	seriesNamespace := make(map[uint64]int)       // key of outer slice is the series id
@@ -58,7 +59,7 @@ func (batch *BatchWriter) Execute() (res WriteResult) {
 	// get
 	conn, err := batch.client.GetConnection()
 	if err != nil {
-		res.Error = err
+		res.Error = errors.Wrap(err, "failed get connection")
 		return
 	}
 	defer panicOnErrorClose(conn.Close)
@@ -73,7 +74,7 @@ func (batch *BatchWriter) Execute() (res WriteResult) {
 	// execute
 	var response *types.WriteResponse
 	if err := conn.client.Call(types.EndpointWriter.String()+"."+types.MethodName, request, &response); err != nil {
-		res.Error = err
+		res.Error = errors.Wrap(err, "failed write call")
 		return
 	}
 	if response.Error != nil {

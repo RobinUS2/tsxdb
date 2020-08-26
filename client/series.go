@@ -63,6 +63,9 @@ func (client *Instance) Series(name string, opts ...SeriesOpt) *Series {
 	if client.opts.EagerInitSeries {
 		// async to not block it, errors are ignored, since this is just a best effort, will be done (and error-ed) in write anyway later if retried
 		go func() {
+			// prevent a ton of concurrent inits, not good for opening lots of connections at once
+			client.seriesPool.eagerInitMux.Lock()
+			defer client.seriesPool.eagerInitMux.Unlock()
 			_, _ = s.Create()
 		}()
 	}

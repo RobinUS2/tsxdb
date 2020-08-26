@@ -5,8 +5,6 @@ import (
 	"github.com/RobinUS2/tsxdb/rpc/types"
 )
 
-// @todo tests for batch queries
-
 type MultiQueryBuilder struct {
 	queries []Query
 	client  *Instance

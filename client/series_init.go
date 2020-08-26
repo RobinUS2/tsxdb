@@ -10,10 +10,15 @@ import (
 // init series metadata on the server side (only transmits names, tags, etc. once instead of each time)
 
 func (series *Series) Create() (id uint64, err error) {
+	id = series.Id()
+	if id > 0 {
+		return id, nil
+	}
 	conn, err := series.client.GetConnection()
 	if err != nil {
 		return 0, err
 	}
+	defer panicOnErrorClose(conn.Close)
 	return series.Init(conn)
 }
 
@@ -23,6 +28,8 @@ func (series *Series) ResetInit() {
 }
 
 func (series *Series) Init(conn *ManagedConnection) (id uint64, err error) {
+	// Note: this function does not close the connection, need to do in function that uses it
+
 	// fast path
 	id = atomic.LoadUint64(&series.id)
 	if id > 0 {
