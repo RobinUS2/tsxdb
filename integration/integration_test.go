@@ -27,246 +27,17 @@ func TestRun(t *testing.T) {
 func TestNew(t *testing.T) {
 	// start server
 	s := NewTestServer(true, true)
-	c := NewTestClient(s)
-	if c == nil {
-		t.Error()
-		return
-	}
-
-	// new series
-	series := c.Series("mySeries")
-
-	// timestamp
-	now := c.Now()
-	const oneMinute = 60 * 1000
-	const writeValue = 10.1
-
-	// write
-	{
-		result := series.Write(now, writeValue)
-		if result.Error != nil {
-			t.Error(result.Error)
-		}
-	}
-
-	// batch
-	{
-		b := c.NewBatchWriter()
-		if err := b.AddToBatch(c.Series("a"), 12345, 10.0); err != nil {
-			t.Error(err)
-		}
-		if err := b.AddToBatch(c.Series("b"), 54321, 11.1); err != nil {
-			t.Error(err)
-		}
-		if err := b.AddToBatch(c.Series("a"), 12345, 22.2); err != nil {
-			t.Error(err)
-		}
-		result := b.Execute()
-		if result.Error != nil {
-			t.Error(result.Error)
-		}
-		if result.NumPersisted != 3 {
-			t.Error(result.NumPersisted)
-		}
-	}
-
-	// read
-	{
-		result := series.QueryBuilder().From(now - oneMinute).To(now + oneMinute).Execute()
-		if result.Error != nil {
-			t.Error(result.Error)
-		}
-		if result.Results == nil {
-			t.Error()
-		}
-		if len(result.Results) != 1 {
-			t.Error(result.Results)
-			return
-		}
-		var ts uint64
-		var value float64
-		for ts, value = range result.Results {
-			// no need to do something
-		}
-		if ts != now {
-			t.Error(ts, now)
-		}
-		if value != writeValue {
-			t.Error(value)
-		}
-		//t.Log(ts, value)
-	}
-
-	// batch read
-	{
-		multiQuery := c.MultiQueryBuilder()
-		{
-			someSeries := c.Series("a")
-			qb := someSeries.QueryBuilder().From(now - oneMinute).To(now + oneMinute)
-			if err := multiQuery.AddQuery(qb); err != nil {
-				t.Error(err)
-			}
-		}
-		{
-			someSeries := c.Series("b")
-			qb := someSeries.QueryBuilder().From(now - oneMinute).To(now + oneMinute)
-			if err := multiQuery.AddQuery(qb); err != nil {
-				t.Error(err)
-			}
-		}
-		res := multiQuery.Execute()
-		if res.Error != nil {
-			t.Error(res.Error)
-		}
-		if len(res.Results) != 2 {
-			t.Errorf("expected 2 results %+v", res.Results)
-		}
-	}
-
-	// empty name
-	{
-		series := c.Series("")
-		id, err := series.Create()
-		if id != 0 || err == nil {
-			t.Error("should error", id, err)
-		}
-	}
-
-	// invalid name
-	{
-		series := c.Series("with whitespace")
-		id, err := series.Create()
-		if id != 0 || err == nil {
-			t.Error("should error", id, err)
-		}
-	}
-
-	{
-		// auto batch
-		syncFlush := client.NewAutoBatchOptAsyncFlush(false)
-		b := c.NewAutoBatchWriter(5, 100*time.Millisecond, syncFlush)
-		if b == nil {
-			t.Error()
-		}
-		var flushCount uint64
-		b.SetPostFlushFn(func() {
-			atomic.AddUint64(&flushCount, 1)
-		})
-
-		// series
-		series := c.Series("testSeries")
-		if err := b.AddToBatch(series, rand.Uint64(), rand.Float64()); err != nil {
-			t.Error(err)
-		}
-
-		// allow ticker to tick
-		time.Sleep(60 * time.Millisecond)
-
-		// check flush count, should still be zero
-		if b.FlushCount() != 0 {
-			t.Error(b.FlushCount())
-		}
-
-		// allow ticker to tick
-		time.Sleep(60 * time.Millisecond)
-
-		// check flush count, should still be higher
-		if b.FlushCount() != 1 {
-			t.Error(b.FlushCount())
-		}
-
-		// flushCount?
-		if atomic.LoadUint64(&flushCount) != 1 {
-			t.Error("should have flushCount", flushCount)
-		}
-
-		// hit limit
-		for i := 0; i < 10; i++ {
-			if err := b.AddToBatch(series, rand.Uint64(), rand.Float64()); err != nil {
-				t.Error(err)
-			}
-		}
-
-		// flushCount?
-		if atomic.LoadUint64(&flushCount) != 3 {
-			t.Error("should have flushCount", flushCount)
-		}
-
-		// close
-		if err := b.Close(); err != nil {
-			t.Error(err)
-		}
-	}
-
-	// ASYNC default
-	{
-		// auto batch
-		b := c.NewAutoBatchWriter(5, 100*time.Millisecond)
-		if b == nil {
-			t.Error()
-		}
-		if !b.AsyncFlush() {
-			t.Error("should be async by default")
-		}
-		var flushCount uint64
-		b.SetPostFlushFn(func() {
-			atomic.AddUint64(&flushCount, 1)
-		})
-
-		// series
-		series := c.Series("testSeries")
-		if err := b.AddToBatch(series, rand.Uint64(), rand.Float64()); err != nil {
-			t.Error(err)
-		}
-
-		// allow ticker to tick
-		time.Sleep(60 * time.Millisecond)
-
-		// check flush count, should still be zero
-		if b.FlushCount() != 0 {
-			t.Error(b.FlushCount())
-		}
-
-		// allow ticker to tick
-		time.Sleep(60 * time.Millisecond)
-
-		// check flush count, should still be higher
-		if b.FlushCount() != 1 {
-			t.Error(b.FlushCount())
-		}
-
-		// flushCount?
-		if atomic.LoadUint64(&flushCount) != 1 {
-			t.Error("should have flushCount", flushCount)
-		}
-
-		// hit limit
-		for i := 0; i < 10; i++ {
-			if err := b.AddToBatch(series, rand.Uint64(), rand.Float64()); err != nil {
-				t.Error(err)
-			}
-		}
-
-		time.Sleep(1 * time.Second) // give time to complete async flush @todo actually wait for it, but this is fine for now
-
-		// flushCount?
-		if atomic.LoadUint64(&flushCount) != 3 {
-			t.Error("should have flushCount", flushCount)
-		}
-
-		// close
-		if err := b.Close(); err != nil {
-			t.Error(err)
-		}
-	}
-
-	c.Close()
-	_ = s.Shutdown()
+	basicTestSuite(t, s)
 }
 
 func TestNewRedis(t *testing.T) {
 	// start server
 	s := NewTestServerRedis(true, true)
+	basicTestSuite(t, s)
+}
+
+func basicTestSuite(t *testing.T, s *server.Instance) {
+	// client
 	c := NewTestClient(s)
 	if c == nil {
 		t.Error()
@@ -292,13 +63,13 @@ func TestNewRedis(t *testing.T) {
 	// batch
 	{
 		b := c.NewBatchWriter()
-		if err := b.AddToBatch(c.Series("a"), 12345, 10.0); err != nil {
+		if err := b.AddToBatch(c.Series("a"), now+1, 10.0); err != nil {
 			t.Error(err)
 		}
-		if err := b.AddToBatch(c.Series("b"), 54321, 11.1); err != nil {
+		if err := b.AddToBatch(c.Series("b"), now+2, 11.1); err != nil {
 			t.Error(err)
 		}
-		if err := b.AddToBatch(c.Series("a"), 12345, 22.2); err != nil {
+		if err := b.AddToBatch(c.Series("a"), now+3, 22.2); err != nil {
 			t.Error(err)
 		}
 		result := b.Execute()
@@ -769,79 +540,7 @@ func TestBatchWritePerformance(t *testing.T) {
 	_ = s.Shutdown()
 }
 
-func TestBatchWritePerformanceMultiSeries(t *testing.T) {
-	// start server
-	s := NewTestServer(true, true)
-	c := NewTestClient(s)
-	startTime := time.Now()
-	totalValuesWritten := 0
-	const minTime = 1 * time.Second
-	const minIters = 500
-	const batchSize = 1000 // tuning this number increases throughput, seems to max out at around 100K value with throughput of 1.7MM/sec on 1 core @ MacBook Pro Feb '18, although that is not realistic so we leave it at 1000 for now
-	var i int
-	for i = 0; i < 1000*1000; i++ {
-		b := c.NewBatchWriter()
-		// batches
-		for j := 0; j < batchSize; j++ {
-			totalValuesWritten++
-			seriesId := i % 100
-			series := c.Series(fmt.Sprintf("benchmarkSeriesWriteBatchMultiSeries-%d", seriesId))
-			if err := b.AddToBatch(series, rand.Uint64(), rand.Float64()); err != nil {
-				t.Error(err)
-			}
-		}
-		result := b.Execute()
-		if result.Error != nil {
-			t.Error(result.Error)
-		}
-
-		// evict series cache
-		if i%100 == 0 {
-			// simulate retransmission of metadata
-			if c.SeriesPool().EvictCache() < 1 {
-				t.Error("should evict")
-			}
-		}
-
-		if i > minIters && i%10 == 0 {
-			if time.Since(startTime).Seconds() > minTime.Seconds() {
-				break
-			}
-		}
-	}
-	tookMs := float64(time.Since(startTime).Nanoseconds()) / 1000000.0
-	tookMsEach := tookMs / float64(i*batchSize)
-	perSecond := 1000.0 / tookMsEach
-	numIterations := i + 1
-	t.Logf("write avg time %f.2ms (%d iterations - %.0f/second)", tookMsEach, numIterations, perSecond)
-
-	time.Sleep(1 * time.Second) // wait for async to flush @todo wait for it to really complete
-
-	stats := s.Statistics()
-	t.Logf("%+v totalValuesWritten %d", stats, totalValuesWritten)
-	if stats.NumValuesWritten() != uint64(totalValuesWritten) {
-		t.Errorf("lost writes %d vs %d", stats.NumValuesWritten(), totalValuesWritten)
-	}
-	if stats.NumSeriesCreated() != 100 {
-		t.Errorf("100 series expected was %d", stats.NumSeriesCreated())
-	}
-	if stats.NumSeriesInitialised() < 300 {
-		t.Errorf("init should be done a few times")
-	}
-	if stats.NumAuthentications() < uint64(numIterations) {
-		t.Errorf("at least 1 auth per flush %d vs %d", stats.NumAuthentications(), numIterations)
-	}
-	if stats.NumReads() != 0 {
-		t.Errorf("no reads")
-	}
-
-	c.Close()
-	_ = s.Shutdown()
-}
-
-func TestBatchWritePerformanceMultiSeriesRedis(t *testing.T) {
-	// start server
-	s := NewTestServerRedis(true, true)
+func runBatchWritePerformanceMultiSeries(t *testing.T, s *server.Instance) {
 	c := NewTestClient(s)
 	startTime := time.Now()
 	totalValuesWritten := 0
@@ -860,13 +559,15 @@ func TestBatchWritePerformanceMultiSeriesRedis(t *testing.T) {
 				t.Error(err)
 			}
 		}
+		startExecute := time.Now()
 		result := b.Execute()
+		t.Logf("execute took %s", time.Since(startExecute))
 		if result.Error != nil {
 			t.Error(result.Error)
 		}
 
 		// evict series cache
-		if i%50 == 0 {
+		if i%20 == 0 {
 			// simulate retransmission of metadata
 			if c.SeriesPool().EvictCache() < 1 {
 				t.Error("should evict")
@@ -895,6 +596,9 @@ func TestBatchWritePerformanceMultiSeriesRedis(t *testing.T) {
 	if stats.NumSeriesCreated() != 100 {
 		t.Errorf("100 series expected was %d", stats.NumSeriesCreated())
 	}
+	if stats.NumSeriesInitialised() < 1 {
+		t.Errorf("init should be done a few times")
+	}
 	if stats.NumAuthentications() < uint64(numIterations) {
 		t.Errorf("at least 1 auth per flush %d vs %d", stats.NumAuthentications(), numIterations)
 	}
@@ -904,6 +608,18 @@ func TestBatchWritePerformanceMultiSeriesRedis(t *testing.T) {
 
 	c.Close()
 	_ = s.Shutdown()
+}
+
+func TestBatchWritePerformanceMultiSeries(t *testing.T) {
+	// start server
+	s := NewTestServer(true, true)
+	runBatchWritePerformanceMultiSeries(t, s)
+}
+
+func TestBatchWritePerformanceMultiSeriesRedis(t *testing.T) {
+	// start server
+	s := NewTestServerRedis(true, true)
+	runBatchWritePerformanceMultiSeries(t, s)
 }
 
 // during a restart of the (memory) server it could be that metadata is lost, in such a way that clients need to re-transmit this

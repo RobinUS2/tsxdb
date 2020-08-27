@@ -3,6 +3,7 @@ package client
 import (
 	"github.com/RobinUS2/tsxdb/rpc/types"
 	"github.com/pkg/errors"
+	"log"
 )
 
 // not concurrent, make sure to lock yourself or use one per go routine
@@ -67,7 +68,7 @@ func (batch *BatchWriter) Execute() (res WriteResult) {
 	// to request
 	request, err := batch.ToWriteRequest(conn)
 	if err != nil {
-		res.Error = err
+		res.Error = errors.Wrap(err, "failed ToWriteRequest")
 		return
 	}
 
@@ -86,6 +87,7 @@ func (batch *BatchWriter) Execute() (res WriteResult) {
 
 	if response.Error != nil {
 		if *response.Error == types.RpcErrorBackendMetadataNotFound {
+			log.Printf("re-transmitting metadata to backend (did server restart?)")
 			// metadata not found, re-init so that clients send metadata again to server
 			for _, item := range batch.items {
 				item.series.ResetInit()
@@ -94,7 +96,7 @@ func (batch *BatchWriter) Execute() (res WriteResult) {
 			// re-execute
 			return batch.Execute()
 		}
-		res.Error = response.Error.Error()
+		res.Error = errors.Wrap(response.Error.Error(), "generic response error")
 		return
 	}
 

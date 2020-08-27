@@ -1,6 +1,7 @@
 package client
 
 import (
+	"fmt"
 	"log"
 	"math/rand"
 	"runtime/debug"
@@ -19,9 +20,9 @@ func jitterSleep(baseSleep time.Duration, attempt int) {
 func handleRetry(fn func() error) (err error) {
 	defer func() {
 		// recover from panics, way to signal stop retrying
+		// @todo proper way to signal non-retryable errors from handleRetry
 		if r := recover(); r != nil {
-			log.Printf("recovered retry %s", r) // @todo proper way to signal non-retryable errors from handleRetry
-			err = nil
+			err = fmt.Errorf("recovered retry %s", r)
 		}
 	}()
 
