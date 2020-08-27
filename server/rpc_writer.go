@@ -4,9 +4,7 @@ import (
 	"fmt"
 	"github.com/RobinUS2/tsxdb/rpc/types"
 	"github.com/RobinUS2/tsxdb/server/backend"
-	"log"
 	"sync/atomic"
-	"time"
 )
 
 func init() {
@@ -24,9 +22,7 @@ func NewWriterEndpoint() *WriterEndpoint {
 
 func (endpoint *WriterEndpoint) Execute(args *types.WriteRequest, resp *types.WriteResponse) error {
 	// deal with panics, else the whole RPC server could crash
-	startTime := time.Now()
 	defer func() {
-		log.Printf("write took %s", time.Since(startTime))
 		if r := recover(); r != nil {
 			resp.Error = types.WrapErrorPointer(fmt.Errorf("%s", r))
 		}
@@ -75,7 +71,6 @@ func (endpoint *WriterEndpoint) Execute(args *types.WriteRequest, resp *types.Wr
 			return nil
 		}
 		backendInstances[backendInstance] = true
-		log.Printf("78 took %s", time.Since(startTime))
 
 		// write
 		writeContext := backend.ContextWrite(c)
@@ -85,21 +80,16 @@ func (endpoint *WriterEndpoint) Execute(args *types.WriteRequest, resp *types.Wr
 			resp.Error = &e
 			return nil
 		}
-		log.Printf("87 took %s", time.Since(startTime))
 	}
 
 	// flush backends
 	for backendInstance := range backendInstances {
-		log.Printf("93 %d took %s", backendInstance, time.Since(startTime))
 		if err := backendInstance.FlushPendingWrites(requestId); err != nil {
-			log.Printf("error %s", err)
 			e := types.RpcError(err.Error())
 			resp.Error = &e
 			return nil
 		}
-		log.Printf("98 %d took %s", backendInstance, time.Since(startTime))
 	}
-	log.Printf("101 took %s", time.Since(startTime))
 
 	resp.Num = numTimesTotal
 

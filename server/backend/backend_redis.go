@@ -85,9 +85,7 @@ func (instance *RedisBackend) FlushPendingWrites(requestId RequestId) error {
 	defer func() {
 		instance.pipelinesMux.Lock()
 		delete(instance.pipelines, requestId)
-		n := len(instance.pipelines)
 		instance.pipelinesMux.Unlock()
-		log.Printf("pipelines pending %d", n)
 	}()
 
 	// execute buffer
@@ -125,11 +123,6 @@ func (instance *RedisBackend) getPipeline(context ContextWrite) (redis.Pipeliner
 }
 
 func (instance *RedisBackend) Write(context ContextWrite, timestamps []uint64, values []float64) error {
-	startTime := time.Now() // @todo cleanup
-	defer func() {          // @todo cleanup
-		log.Printf("redis write took %s", time.Since(startTime)) // @todo cleanup
-	}() // @todo cleanup
-
 	if IsEmptyRequestId(context.RequestId) {
 		return fmt.Errorf("empty request id %s", context.RequestId)
 	}
@@ -592,7 +585,7 @@ func (instance *RedisBackend) Init() error {
 				// mini redis does not forward time, and thus never expires key.
 				// simple time forwarding
 				duration := time.Millisecond * 100
-				warnDuration := time.Duration(float64(duration) * 0.1)
+				warnDuration := time.Duration(float64(duration) * 0.8) // 80% of time spent on locking
 				var lastCompleted time.Time
 				ticker := time.NewTicker(duration)
 				for range ticker.C {

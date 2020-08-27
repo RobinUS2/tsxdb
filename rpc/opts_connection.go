@@ -5,6 +5,7 @@ import "time"
 const DefaultListenPort = 1234
 const DefaultListenHost = "127.0.0.1"
 const DefaultConnectTimeout = 10 * time.Second // setup a new connection to the server
+const DefaultTimeout = 60 * time.Second        // timeout for a connection
 
 type OptsConnection struct {
 	ListenPort     int           `yaml:"listen_port"`

@@ -11,7 +11,7 @@ replace github.com/RobinUS2/tsxdb/server => ../server
 replace github.com/RobinUS2/tsxdb/rpc => ../rpc
 
 require (
-	github.com/RobinUS2/tsxdb/client v0.0.0-20200825144218-28349cb416d2
+	github.com/RobinUS2/tsxdb/client v0.0.0-20200826085733-b35bb2a44b93
 	github.com/RobinUS2/tsxdb/server v0.0.0-20190523121601-0130f23bf035
 	github.com/pkg/errors v0.9.1
 	github.com/reiver/go-oi v1.0.0

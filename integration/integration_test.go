@@ -573,9 +573,7 @@ func runBatchWritePerformanceMultiSeries(t *testing.T, s *server.Instance) {
 				t.Error(err)
 			}
 		}
-		startExecute := time.Now()
 		result := b.Execute()
-		t.Logf("execute took %s", time.Since(startExecute))
 		if result.Error != nil {
 			t.Error(result.Error)
 		}

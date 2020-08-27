@@ -11,7 +11,6 @@ import (
 	insecureRand "math/rand"
 	"net"
 	"net/rpc"
-	"runtime"
 	"runtime/debug"
 	"strings"
 	"sync/atomic"
@@ -69,13 +68,9 @@ func (client *Instance) GetConnection() (managedConnection *ManagedConnection, e
 	now := nowMs()
 	atomic.StoreUint64(&managedConnection.poolGet, now)
 
-	// usage
-	numUsed := atomic.AddUint64(&managedConnection.timesUsed, 1)
-	log.Printf("numUsed %d", numUsed) // @todo cleanup
-
 	// track potential leakage (e.g not calling *ManagedConnection.Close )
 	if client.opts.OptsConnection.Debug {
-		const returnTimeout = 10 * time.Second
+		const returnTimeout = tsxdbRpc.DefaultTimeout
 		time.AfterFunc(returnTimeout, func() {
 			returned := atomic.LoadUint64(&managedConnection.poolReturn)
 			if returned < now {
@@ -135,7 +130,6 @@ func (conn *ManagedConnection) Discard() {
 }
 
 func (conn *ManagedConnection) Close() error {
-	log.Println("close")
 	// track slow usage
 	now := nowMs()
 	atomic.StoreUint64(&conn.poolReturn, now)
@@ -146,24 +140,18 @@ func (conn *ManagedConnection) Close() error {
 		debug.PrintStack()
 	}
 
-	const maxUsages = 10 // @todo up number
+	// track max usage per connection
+	const maxUsages = 1000
 	numUsed := atomic.LoadUint64(&conn.timesUsed)
 
 	// keep alive? only if within expire time and not discard
-	// @todo migrate the 60 magic number to the value from the server
 	if !conn.discard && time.Now().Unix()-conn.created < 60 && numUsed < maxUsages {
 		// re-use
-		log.Println("reuse")
 		conn.service.connectionPool.Put(conn)
 		return nil
 	}
 
 	// close
-	log.Println("close connection")                                     // @todo cleanup
-	numConnections := atomic.AddInt64(&conn.service.numConnections, -1) // @todo cleanup
-	log.Printf("numConnections %d", numConnections)                     // @todo cleanup
-	routines := runtime.NumGoroutine()                                  // @todo cleanup
-	log.Printf("routines %d", routines)                                 // @todo cleanup
 	if err := conn.client.Close(); err != nil {
 		return err
 	}

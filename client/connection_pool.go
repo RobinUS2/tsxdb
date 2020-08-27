@@ -13,7 +13,7 @@ type ConnectionPool struct {
 func (client *Instance) NewConnectionPool() *ConnectionPool {
 	genericPool := NewGenericPool(PoolOpts{
 		Size:        10,
-		PreWarmSize: 4,
+		PreWarmSize: 0,
 		New: func() interface{} {
 			if client.closing {
 				return nil
@@ -24,7 +24,10 @@ func (client *Instance) NewConnectionPool() *ConnectionPool {
 				panic(errors.Wrap(err, "failed to init new connection"))
 			}
 			numConnections := atomic.AddInt64(&client.numConnections, 1)
-			log.Printf("numConnections %d", numConnections)
+			const numConnectionsWarningThreshold = 100
+			if client.opts.Debug && numConnections > numConnectionsWarningThreshold {
+				log.Printf("numConnections %d", numConnections)
+			}
 			return c
 		},
 	})
@@ -82,9 +85,7 @@ func (p *GenericPool) Put(v interface{}) {
 		// non blocking write
 	default:
 		// pool full, discard
-		log.Println("discard pool")
 		if closeable, ok := v.(IClosablePoolValue); ok {
-			log.Println("discard pool")
 			closeable.DiscardPool()
 		}
 	}
