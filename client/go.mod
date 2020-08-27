@@ -11,8 +11,8 @@ replace github.com/RobinUS2/tsxdb/rpc/types => ../rpc/types
 replace github.com/RobinUS2/tsxdb/tools => ../tools
 
 require (
-	github.com/RobinUS2/tsxdb/rpc v0.0.0-20200826085733-b35bb2a44b93
-	github.com/RobinUS2/tsxdb/tools v0.0.0-20200826085733-b35bb2a44b93
+	github.com/RobinUS2/tsxdb/rpc v0.0.0-20200827151505-dd599ba90ced
+	github.com/RobinUS2/tsxdb/tools v0.0.0-20200827151505-dd599ba90ced
 	github.com/karlseguin/ccache/v2 v2.0.6
 	github.com/pkg/errors v0.9.1
 )
