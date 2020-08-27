@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-const ConnectionTimeout = 60 * time.Second
+const ConnectionTimeout = rpc.DefaultTimeout
 
 func (instance *Instance) StartListening() error {
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", instance.opts.ListenPort))
