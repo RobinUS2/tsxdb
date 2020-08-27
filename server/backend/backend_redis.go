@@ -51,14 +51,21 @@ func (instance *RedisBackend) getDataKey(ctx Context, timestamp uint64) (string,
 }
 
 func (instance *RedisBackend) getKeyScoreAndMember(context ContextWrite, timestamp uint64, value float64) (key string, score float64, member string) {
+	// this function basically creates a unique "member" for the redis set so that it's not overwritten, it uses the timestamp prefix with a random value
+	// the timestamp prefix will be truncated to last digits (most significant, seconds etc versus the month bit).
 	var tsBucket uint64
 	key, tsBucket = instance.getDataKey(context.Context, timestamp)
-	tsPadded := float64(timestamp) + (rand.Float64() * maxPaddingSize)
+	score = float64(timestamp) + (rand.Float64() * maxPaddingSize)
 	tsBucketPrefix := fmt.Sprintf("%d", tsBucket)
-	tsBucketPrefix = tsBucketPrefix[0 : len(tsBucketPrefix)-timestampBucketSizeStrLength]
-	tsPaddedStr := strings.TrimPrefix(fmt.Sprintf("%f", tsPadded), tsBucketPrefix)
+	// how many chars do we need of the timestamp suffix / last digits?
+	finalChars := len(tsBucketPrefix) - timestampBucketSizeStrLength
+	if finalChars >= 1 {
+		// very old timestamps (e.g. timestamp 12345) will have not enough left to remove the timestampBucketSizeStrLength (which is generally 8), so will only do if makes sense
+		tsBucketPrefix = tsBucketPrefix[0:finalChars]
+	}
+	tsPaddedStr := strings.TrimPrefix(fmt.Sprintf("%f", score), tsBucketPrefix)
 	member = FloatToString(value) + fmt.Sprintf(":%s", tsPaddedStr) // must be string and unique, that's why we take the timestamp with random value
-	return key, tsPadded, member
+	return key, score, member
 }
 
 func (instance *RedisBackend) FlushPendingWrites(requestId RequestId) error {
@@ -246,7 +253,7 @@ func (instance *RedisBackend) Read(context ContextRead) (res ReadResult) {
 	}
 	// no data?
 	if resultMap == nil {
-		res.Error = ErrNoDataFound
+		res.Error = types.RpcErrorNoDataFound.Error()
 		return
 	}
 	res.Results = resultMap
@@ -484,7 +491,7 @@ func (instance *RedisBackend) getMetadata(namespace Namespace, id uint64, ignore
 				// @todo deal with in other way
 				panic(res.Error)
 			}
-			err = errors.Wrapf(ErrNoDataFound, "series %d expired", id)
+			err = errors.Wrapf(types.RpcErrorNoDataFound.Error(), "series %d expired", id)
 			return
 		}
 	}

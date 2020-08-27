@@ -1,7 +1,6 @@
 package client
 
 import (
-	"fmt"
 	"log"
 	"math/rand"
 	"runtime/debug"
@@ -21,7 +20,8 @@ func handleRetry(fn func() error) (err error) {
 	defer func() {
 		// recover from panics, way to signal stop retrying
 		if r := recover(); r != nil {
-			err = fmt.Errorf("%s", r)
+			log.Printf("recovered retry %s", r) // @todo proper way to signal non-retryable errors from handleRetry
+			err = nil
 		}
 	}()
 
