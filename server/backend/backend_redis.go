@@ -7,6 +7,7 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	lock "github.com/bsm/redislock"
 	"github.com/go-redis/redis/v7"
+	"github.com/karlseguin/ccache/v2"
 	"github.com/patrickmn/go-cache"
 	"github.com/pkg/errors"
 	"log"
@@ -26,6 +27,7 @@ const timestampBucketSize = 86400 * 1000 // 1 day in milliseconds
 var timestampBucketSizeStrLength = len(fmt.Sprintf("%d", timestampBucketSize))
 
 const defaultExpiryTime = time.Minute // default time one can lock redis
+const MetadataLocalCacheDuration = 1000 * time.Millisecond
 
 var redisNoConnForNamespaceErr = errors.New("no connection for namespace")
 
@@ -40,6 +42,8 @@ type RedisBackend struct {
 
 	pipelines    map[RequestId]redis.Pipeliner
 	pipelinesMux sync.RWMutex
+
+	metadataCache *ccache.Cache
 }
 
 func (instance *RedisBackend) Type() TypeBackend {
@@ -358,6 +362,7 @@ func (instance *RedisBackend) createOrUpdateSeries(identifier types.SeriesCreate
 			if res := conn.Set(metaKey, string(j), 0); res.Err() != nil {
 				return result, res.Err()
 			}
+			instance.metadataCache.DeletePrefix(metaKey) // wipe metadata cache
 		}
 
 		// persist tags
@@ -462,9 +467,20 @@ func (instance *RedisBackend) SearchSeries(search *SearchSeries) (result *Search
 }
 
 func (instance *RedisBackend) getMetadata(namespace Namespace, id uint64, ignoreExpiry bool) (result SeriesMetadata, err error) {
-	conn := instance.GetConnection(namespace)
-	metaKey := instance.getSeriesMetaKey(namespace, id)
+	cacheKey := instance.getSeriesMetaKey(namespace, id) + strconv.FormatBool(ignoreExpiry)
+	val, err := instance.metadataCache.Fetch(cacheKey, MetadataLocalCacheDuration, func() (interface{}, error) {
+		return instance.getMetadataFromStorage(namespace, id, ignoreExpiry)
+	})
+	if err != nil {
+		return
+	}
+	result = val.Value().(SeriesMetadata)
+	return
+}
 
+func (instance *RedisBackend) getMetadataFromStorage(namespace Namespace, id uint64, ignoreExpiry bool) (result SeriesMetadata, err error) {
+	metaKey := instance.getSeriesMetaKey(namespace, id)
+	conn := instance.GetConnection(namespace)
 	res := conn.Get(metaKey)
 	if res.Err() != nil {
 		return result, errors.Wrapf(res.Err(), "series %d", id)
@@ -641,6 +657,7 @@ func NewRedisBackend(opts *RedisOpts) *RedisBackend {
 		opts:               opts,
 		expireWrittenCache: cache.New(60*time.Minute, 1*time.Minute),
 		pipelines:          make(map[RequestId]redis.Pipeliner),
+		metadataCache:      ccache.New(ccache.Configure().MaxSize(1000 * 1000)),
 	}
 }
 
