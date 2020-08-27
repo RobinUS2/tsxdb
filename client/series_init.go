@@ -30,8 +30,12 @@ func (series *Series) ResetInit() {
 func (series *Series) Init(conn *ManagedConnection) (id uint64, err error) {
 	// Note: this function does not close the connection, need to do in function that uses it
 
+	if series.Name() == "" {
+		return 0, errors.New("series name must be provided")
+	}
+
 	// fast path
-	id = atomic.LoadUint64(&series.id)
+	id = series.Id()
 	if id > 0 {
 		// already initialised
 		return id, nil
@@ -47,33 +51,44 @@ func (series *Series) Init(conn *ManagedConnection) (id uint64, err error) {
 	defer series.initMux.Unlock()
 
 	// check again already sent? (could be done during waiting of the lock)
-	id = atomic.LoadUint64(&series.id)
+	id = series.Id()
 	if id > 0 {
 		// already initialised
 		return id, nil
 	}
 
-	// request
-	request := types.SeriesMetadataRequest{
-		SeriesCreateMetadata: types.SeriesCreateMetadata{
-			SeriesMetadata: types.SeriesMetadata{
-				Namespace: series.Namespace(),
-				Tags:      series.Tags(),
-				Name:      series.Name(),
-				Ttl:       series.TTL(),
-			},
-			SeriesCreateIdentifier: types.SeriesCreateIdentifier(tools.RandomInsecureIdentifier()),
-		},
-		SessionTicket: conn.getSessionTicket(),
-	}
-
-	// execute
+	// request with retries
 	var response *types.SeriesMetadataResponse
-	if err := conn.client.Call(types.EndpointSeriesMetadata.String()+"."+types.MethodName, request, &response); err != nil {
+	err = handleRetry(func() error {
+		request := types.SeriesMetadataRequest{
+			SeriesCreateMetadata: types.SeriesCreateMetadata{
+				SeriesMetadata: types.SeriesMetadata{
+					Namespace: series.Namespace(),
+					Tags:      series.Tags(),
+					Name:      series.Name(),
+					Ttl:       series.TTL(),
+				},
+				SeriesCreateIdentifier: types.SeriesCreateIdentifier(tools.RandomInsecureIdentifier()),
+			},
+			SessionTicket: conn.getSessionTicket(),
+		}
+
+		// execute
+		if err = conn.client.Call(types.EndpointSeriesMetadata.String()+"."+types.MethodName, request, &response); err != nil {
+			return err
+		}
+		if response.Error != nil {
+			if *response.Error == types.RpcErrorSeriesNameEmpty || *response.Error == types.RpcErrorSeriesNameWhitespace {
+				// non-retryable
+				panic(response.Error)
+			}
+			return response.Error.Error()
+		}
+		return nil
+	})
+
+	if err != nil {
 		return 0, err
-	}
-	if response.Error != nil {
-		return 0, response.Error.Error()
 	}
 
 	// store id

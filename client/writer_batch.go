@@ -73,10 +73,17 @@ func (batch *BatchWriter) Execute() (res WriteResult) {
 
 	// execute
 	var response *types.WriteResponse
-	if err := conn.client.Call(types.EndpointWriter.String()+"."+types.MethodName, request, &response); err != nil {
+	err = handleRetry(func() error {
+		if err := conn.client.Call(types.EndpointWriter.String()+"."+types.MethodName, request, &response); err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
 		res.Error = errors.Wrap(err, "failed write call")
 		return
 	}
+
 	if response.Error != nil {
 		if *response.Error == types.RpcErrorBackendMetadataNotFound {
 			// metadata not found, re-init so that clients send metadata again to server

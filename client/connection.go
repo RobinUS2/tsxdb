@@ -59,7 +59,12 @@ func (client *Instance) GetConnection() (managedConnection *ManagedConnection, e
 
 	// auth
 	if !managedConnection.authenticated {
-		if err := managedConnection.auth(client); err != nil {
+		// auth with retries
+		err = handleRetry(func() error {
+			return managedConnection.auth(client)
+		})
+		if err != nil {
+			// fatal auth error
 			return nil, err
 		}
 	}

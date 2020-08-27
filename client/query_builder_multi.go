@@ -68,14 +68,19 @@ func (multi *MultiQueryBuilder) Execute() (res MultiQueryResult) {
 		request.Queries = append(request.Queries, queryRequest)
 	}
 
-	// execute
+	// execute with retries
 	var response *types.ReadResponse
-	if err := conn.client.Call(types.EndpointReader.String()+"."+types.MethodName, request, &response); err != nil {
+	err = handleRetry(func() error {
+		if err := conn.client.Call(types.EndpointReader.String()+"."+types.MethodName, request, &response); err != nil {
+			return err
+		}
+		if response.Error != nil {
+			return response.Error.Error()
+		}
+		return nil
+	})
+	if err != nil {
 		res.Error = err
-		return
-	}
-	if response.Error != nil {
-		res.Error = response.Error.Error()
 		return
 	}
 

@@ -6,8 +6,6 @@ import (
 )
 
 func (series *Series) NoOp() error {
-	// request (single)
-	request := types.NoOpRequest{}
 
 	// get
 	conn, err := series.client.GetConnection()
@@ -17,16 +15,18 @@ func (series *Series) NoOp() error {
 	defer panicOnErrorClose(conn.Close)
 
 	// session data
-	request.SessionTicket = conn.getSessionTicket()
+	return handleRetry(func() error {
+		request := types.NoOpRequest{}
+		request.SessionTicket = conn.getSessionTicket()
 
-	// execute
-	var response *types.NoOpResponse
-	if err := conn.client.Call(types.EndpointNoOp.String()+"."+types.MethodName, request, &response); err != nil {
-		return err
-	}
-	if response.Error != nil {
-		return errors.New(response.Error.Error().Error())
-	}
-
-	return nil
+		// execute
+		var response *types.NoOpResponse
+		if err := conn.client.Call(types.EndpointNoOp.String()+"."+types.MethodName, request, &response); err != nil {
+			return err
+		}
+		if response.Error != nil {
+			return errors.New(response.Error.Error().Error())
+		}
+		return nil
+	})
 }

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/RobinUS2/tsxdb/rpc/types"
 	"github.com/RobinUS2/tsxdb/server/backend"
-	"github.com/pkg/errors"
 	"strings"
 	"sync/atomic"
 )
@@ -38,11 +37,11 @@ func (endpoint *SeriesMetadataEndpoint) Execute(args *types.SeriesMetadataReques
 
 	// validate name
 	if strings.Contains(args.SeriesCreateMetadata.Name, " ") {
-		resp.Error = types.WrapErrorPointer(errors.New("series name can not contain whitespace"))
+		resp.Error = &types.RpcErrorSeriesNameWhitespace
 		return nil
 	}
 	if len(args.SeriesCreateMetadata.Name) < 1 {
-		resp.Error = types.WrapErrorPointer(errors.New("series name can not be empty"))
+		resp.Error = &types.RpcErrorSeriesNameEmpty
 		return nil
 	}
 

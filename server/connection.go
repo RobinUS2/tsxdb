@@ -67,6 +67,7 @@ func (instance *Instance) ServeConn(conn net.Conn) {
 	atomic.AddInt64(&instance.pendingRequests, 1)
 
 	// auth timeout
+	// @todo not a routine per connection
 	go func() {
 		time.Sleep(ConnectionTimeout)
 		//log.Printf("check auth from %v", conn.RemoteAddr())
