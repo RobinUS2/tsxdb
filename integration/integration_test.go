@@ -44,6 +44,20 @@ func basicTestSuite(t *testing.T, s *server.Instance) {
 		return
 	}
 
+	// test get connection
+	{
+		conn, err := c.GetConnection()
+		if err != nil {
+			t.Error(err)
+		}
+		if conn == nil {
+			t.Error("missing conn")
+		}
+		if err := conn.Close(); err != nil {
+			t.Error(err)
+		}
+	}
+
 	// new series
 	series := c.Series("mySeries")
 

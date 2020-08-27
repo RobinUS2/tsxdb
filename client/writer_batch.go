@@ -63,7 +63,12 @@ func (batch *BatchWriter) Execute() (res WriteResult) {
 		res.Error = errors.Wrap(err, "failed get connection")
 		return
 	}
-	defer panicOnErrorClose(conn.Close)
+	defer func() {
+		if res.Error != nil {
+			conn.Discard()
+		}
+		panicOnErrorClose(conn.Close)
+	}()
 
 	// to request
 	request, err := batch.ToWriteRequest(conn)
