@@ -3,6 +3,7 @@ package client
 import (
 	"github.com/RobinUS2/tsxdb/rpc/types"
 	"github.com/pkg/errors"
+	"log"
 )
 
 // not concurrent, make sure to lock yourself or use one per go routine
@@ -62,23 +63,36 @@ func (batch *BatchWriter) Execute() (res WriteResult) {
 		res.Error = errors.Wrap(err, "failed get connection")
 		return
 	}
-	defer panicOnErrorClose(conn.Close)
+	defer func() {
+		if res.Error != nil {
+			conn.Discard()
+		}
+		panicOnErrorClose(conn.Close)
+	}()
 
 	// to request
 	request, err := batch.ToWriteRequest(conn)
 	if err != nil {
-		res.Error = err
+		res.Error = errors.Wrap(err, "failed ToWriteRequest")
 		return
 	}
 
 	// execute
 	var response *types.WriteResponse
-	if err := conn.client.Call(types.EndpointWriter.String()+"."+types.MethodName, request, &response); err != nil {
+	err = handleRetry(func() error {
+		if err := conn.client.Call(types.EndpointWriter.String()+"."+types.MethodName, request, &response); err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
 		res.Error = errors.Wrap(err, "failed write call")
 		return
 	}
+
 	if response.Error != nil {
 		if *response.Error == types.RpcErrorBackendMetadataNotFound {
+			log.Printf("re-transmitting metadata to backend (did server restart?)")
 			// metadata not found, re-init so that clients send metadata again to server
 			for _, item := range batch.items {
 				item.series.ResetInit()
@@ -87,7 +101,7 @@ func (batch *BatchWriter) Execute() (res WriteResult) {
 			// re-execute
 			return batch.Execute()
 		}
-		res.Error = response.Error.Error()
+		res.Error = errors.Wrap(response.Error.Error(), "generic response error")
 		return
 	}
 

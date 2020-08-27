@@ -13,6 +13,9 @@ var RpcErrorNoValues RpcError = "no values"
 var RpcErrorMissingSeriesId RpcError = "missing series id"
 var RpcErrorBackendStrategyNotFound RpcError = "no backend strategy found"
 var RpcErrorBackendMetadataNotFound RpcError = "missing metadata"
+var RpcErrorSeriesNameEmpty RpcError = "series name can not be empty"
+var RpcErrorSeriesNameWhitespace RpcError = "series name can not contain whitespace"
+var RpcErrorNoDataFound RpcError = "no data found"
 
 func (err RpcError) String() string {
 	return string(err)

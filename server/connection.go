@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-const ConnectionTimeout = 60 * time.Second
+const ConnectionTimeout = rpc.DefaultTimeout
 
 func (instance *Instance) StartListening() error {
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", instance.opts.ListenPort))
@@ -67,6 +67,7 @@ func (instance *Instance) ServeConn(conn net.Conn) {
 	atomic.AddInt64(&instance.pendingRequests, 1)
 
 	// auth timeout
+	// @todo not a routine per connection
 	go func() {
 		time.Sleep(ConnectionTimeout)
 		//log.Printf("check auth from %v", conn.RemoteAddr())

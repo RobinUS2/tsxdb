@@ -10,6 +10,7 @@ import (
 	"github.com/RobinUS2/tsxdb/rpc/types"
 	"github.com/RobinUS2/tsxdb/tools"
 	insecureRand "math/rand"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -20,7 +21,15 @@ func init() {
 }
 
 type AuthEndpoint struct {
-	server *Instance
+	server    *Instance
+	serverMux sync.RWMutex
+}
+
+func (endpoint *AuthEndpoint) getServer() *Instance {
+	endpoint.serverMux.RLock()
+	s := endpoint.server
+	endpoint.serverMux.RUnlock()
+	return s
 }
 
 func NewAuthEndpoint() *AuthEndpoint {
@@ -39,7 +48,8 @@ func (endpoint *AuthEndpoint) Execute(args *types.AuthRequest, resp *types.AuthR
 	signature, _ := base64.StdEncoding.DecodeString(args.Signature)
 
 	// signature
-	mac := hmac.New(sha512.New, []byte(endpoint.server.opts.AuthToken))
+	server := endpoint.getServer()
+	mac := hmac.New(sha512.New, []byte(server.opts.AuthToken))
 	mac.Write(nonce)
 	expected := mac.Sum(nil)
 	if !hmac.Equal(signature, expected) || nonce == nil || len(nonce) < 32 || signature == nil || len(signature) < 1 {
@@ -67,26 +77,27 @@ func (endpoint *AuthEndpoint) Execute(args *types.AuthRequest, resp *types.AuthR
 		resp.SessionSecret = base64.StdEncoding.EncodeToString(token)
 
 		// store in server
-		endpoint.server.sessionTokensMux.Lock()
-		endpoint.server.sessionTokens[resp.SessionId] = token
-		endpoint.server.sessionTokensMux.Unlock()
+		server.sessionTokensMux.Lock()
+		server.sessionTokens[resp.SessionId] = token
+		server.sessionTokensMux.Unlock()
 
 		// very simplistic way of getting rid of the tokens later
 		go func() {
+			// @todo more efficient way instead of having timers and lots of routines
 			time.Sleep(ConnectionTimeout + (1 * time.Second))
-			endpoint.server.sessionTokensMux.Lock()
-			delete(endpoint.server.sessionTokens, resp.SessionId)
-			endpoint.server.sessionTokensMux.Unlock()
+			server.sessionTokensMux.Lock()
+			delete(server.sessionTokens, resp.SessionId)
+			server.sessionTokensMux.Unlock()
 		}()
 	} else {
 		// stage 2
-		if err := endpoint.server.validateSession(args.SessionTicket); err != nil {
+		if err := server.validateSession(args.SessionTicket); err != nil {
 			resp.Error = types.WrapErrorPointer(err)
 			return nil
 		}
 
 		// auth stats
-		atomic.AddUint64(&endpoint.server.numAuthentications, 1)
+		atomic.AddUint64(&server.numAuthentications, 1)
 	}
 
 	resp.Error = nil
@@ -97,7 +108,9 @@ func (endpoint *AuthEndpoint) register(opts *EndpointOpts) error {
 	if err := opts.server.rpc.RegisterName(endpoint.name().String(), endpoint); err != nil {
 		return err
 	}
+	endpoint.serverMux.Lock()
 	endpoint.server = opts.server
+	endpoint.serverMux.Unlock()
 	return nil
 }
 

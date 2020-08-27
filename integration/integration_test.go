@@ -5,6 +5,7 @@ import (
 	"github.com/RobinUS2/tsxdb/client"
 	"github.com/RobinUS2/tsxdb/integration"
 	"github.com/RobinUS2/tsxdb/server"
+	"github.com/RobinUS2/tsxdb/server/backend"
 	"math/rand"
 	"sync/atomic"
 	"testing"
@@ -26,10 +27,35 @@ func TestRun(t *testing.T) {
 func TestNew(t *testing.T) {
 	// start server
 	s := NewTestServer(true, true)
+	basicTestSuite(t, s)
+}
+
+func TestNewRedis(t *testing.T) {
+	// start server
+	s := NewTestServerRedis(true, true)
+	basicTestSuite(t, s)
+}
+
+func basicTestSuite(t *testing.T, s *server.Instance) {
+	// client
 	c := NewTestClient(s)
 	if c == nil {
 		t.Error()
 		return
+	}
+
+	// test get connection
+	{
+		conn, err := c.GetConnection()
+		if err != nil {
+			t.Error(err)
+		}
+		if conn == nil {
+			t.Error("missing conn")
+		}
+		if err := conn.Close(); err != nil {
+			t.Error(err)
+		}
 	}
 
 	// new series
@@ -51,13 +77,13 @@ func TestNew(t *testing.T) {
 	// batch
 	{
 		b := c.NewBatchWriter()
-		if err := b.AddToBatch(c.Series("a"), 12345, 10.0); err != nil {
+		if err := b.AddToBatch(c.Series("a"), now+1, 10.0); err != nil {
 			t.Error(err)
 		}
-		if err := b.AddToBatch(c.Series("b"), 54321, 11.1); err != nil {
+		if err := b.AddToBatch(c.Series("b"), now+2, 11.1); err != nil {
 			t.Error(err)
 		}
-		if err := b.AddToBatch(c.Series("a"), 12345, 22.2); err != nil {
+		if err := b.AddToBatch(c.Series("a"), now+3, 22.2); err != nil {
 			t.Error(err)
 		}
 		result := b.Execute()
@@ -528,14 +554,12 @@ func TestBatchWritePerformance(t *testing.T) {
 	_ = s.Shutdown()
 }
 
-func TestBatchWritePerformanceMultiSeries(t *testing.T) {
-	// start server
-	s := NewTestServer(true, true)
+func runBatchWritePerformanceMultiSeries(t *testing.T, s *server.Instance) {
 	c := NewTestClient(s)
 	startTime := time.Now()
 	totalValuesWritten := 0
 	const minTime = 1 * time.Second
-	const minIters = 500
+	const minIters = 100
 	const batchSize = 1000 // tuning this number increases throughput, seems to max out at around 100K value with throughput of 1.7MM/sec on 1 core @ MacBook Pro Feb '18, although that is not realistic so we leave it at 1000 for now
 	var i int
 	for i = 0; i < 1000*1000; i++ {
@@ -555,12 +579,14 @@ func TestBatchWritePerformanceMultiSeries(t *testing.T) {
 		}
 
 		// evict series cache
-		if i%100 == 0 {
+		if i%20 == 0 {
 			// simulate retransmission of metadata
-			c.SeriesPool().EvictCache()
+			if c.SeriesPool().EvictCache() < 1 {
+				t.Error("should evict")
+			}
 		}
 
-		if i > minIters && i%100 == 0 {
+		if i > minIters && i%10 == 0 {
 			if time.Since(startTime).Seconds() > minTime.Seconds() {
 				break
 			}
@@ -582,7 +608,7 @@ func TestBatchWritePerformanceMultiSeries(t *testing.T) {
 	if stats.NumSeriesCreated() != 100 {
 		t.Errorf("100 series expected was %d", stats.NumSeriesCreated())
 	}
-	if stats.NumSeriesInitialised() < 300 {
+	if stats.NumSeriesInitialised() < 1 {
 		t.Errorf("init should be done a few times")
 	}
 	if stats.NumAuthentications() < uint64(numIterations) {
@@ -594,6 +620,18 @@ func TestBatchWritePerformanceMultiSeries(t *testing.T) {
 
 	c.Close()
 	_ = s.Shutdown()
+}
+
+func TestBatchWritePerformanceMultiSeries(t *testing.T) {
+	// start server
+	s := NewTestServer(true, true)
+	runBatchWritePerformanceMultiSeries(t, s)
+}
+
+func TestBatchWritePerformanceMultiSeriesRedis(t *testing.T) {
+	// start server
+	s := NewTestServerRedis(true, true)
+	runBatchWritePerformanceMultiSeries(t, s)
 }
 
 // during a restart of the (memory) server it could be that metadata is lost, in such a way that clients need to re-transmit this
@@ -645,6 +683,41 @@ func NewTestServer(init bool, listen bool) *server.Instance {
 	opts := server.NewOpts()
 	opts.ListenPort = int(port)
 	opts.AuthToken = token
+	s := server.New(opts)
+	if init {
+		if err := s.Init(); err != nil {
+			panic(err)
+		}
+	}
+	if listen {
+		if err := s.StartListening(); err != nil {
+			panic(err)
+		}
+	}
+	return s
+}
+
+func NewTestServerRedis(init bool, listen bool) *server.Instance {
+	port := atomic.AddUint64(&lastPort, 1)
+	opts := server.NewOpts()
+	opts.ListenPort = int(port)
+	opts.AuthToken = token
+	opts.Backends = []server.BackendOpts{
+		{
+			Type:       "redis",
+			Identifier: backend.DefaultIdentifier,
+			Metadata:   true,
+			Options: map[string]interface{}{
+				backend.RedisOptsKey: []interface{}{
+					backend.RedisConnectionDetails{
+						Addr: "127.0.0.1",
+						Port: 6379,
+						Type: backend.RedisMemory,
+					},
+				},
+			},
+		},
+	}
 	s := server.New(opts)
 	if init {
 		if err := s.Init(); err != nil {

@@ -13,7 +13,6 @@ import (
 	"net/rpc"
 	"runtime/debug"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -21,19 +20,7 @@ import (
 // @todo explore something like https://github.com/grpc/grpc OR https://github.com/valyala/gorpc as replacement of regular net/rpc (right now a lot of overhead in network bytes)
 
 func (client *Instance) initConnectionPool() error {
-	client.connectionPool = &sync.Pool{
-		New: func() interface{} {
-			if client.closing {
-				return nil
-			}
-			c, err := client.NewClient()
-			if err != nil {
-				// is dealt with in (client *Instance) GetConnection() (*ManagedConnection, error)
-				panic(errors.Wrap(err, "failed to init new connection"))
-			}
-			return c
-		},
-	}
+	client.connectionPool = client.NewConnectionPool()
 	return nil
 }
 
@@ -59,7 +46,20 @@ func (client *Instance) GetConnection() (managedConnection *ManagedConnection, e
 
 	// auth
 	if !managedConnection.authenticated {
-		if err := managedConnection.auth(client); err != nil {
+		// auth with retries
+		err = handleRetry(func() error {
+			err := managedConnection.auth(client)
+			if err != nil {
+				// new connection
+				managedConnection.Discard()
+				client.connectionPool.Put(managedConnection)
+				managedConnection = client.connectionPool.Get().(*ManagedConnection)
+				return err
+			}
+			return nil
+		})
+		if err != nil {
+			// fatal auth error
 			return nil, err
 		}
 	}
@@ -70,7 +70,7 @@ func (client *Instance) GetConnection() (managedConnection *ManagedConnection, e
 
 	// track potential leakage (e.g not calling *ManagedConnection.Close )
 	if client.opts.OptsConnection.Debug {
-		const returnTimeout = 10 * time.Second
+		const returnTimeout = tsxdbRpc.DefaultTimeout
 		time.AfterFunc(returnTimeout, func() {
 			returned := atomic.LoadUint64(&managedConnection.poolReturn)
 			if returned < now {
@@ -95,25 +95,37 @@ func (client *Instance) NewClient() (*ManagedConnection, error) {
 
 	// client
 	rpcClient := rpc.NewClientWithCodec(codec)
-	if err != nil {
-		return nil, err
-	}
+
 	return &ManagedConnection{
+		service: client,
 		client:  rpcClient,
-		pool:    client.connectionPool,
 		created: time.Now().Unix(),
 	}, nil
 }
 
 type ManagedConnection struct {
+	service       *Instance
 	client        *rpc.Client
-	pool          *sync.Pool
 	created       int64
 	authenticated bool
 	sessionId     int
 	sessionSecret []byte
 	poolGet       uint64
 	poolReturn    uint64
+	discard       bool // if set to true won't be returned back to the pool
+	timesUsed     uint64
+}
+
+func (conn *ManagedConnection) DiscardPool() {
+	err := conn.Close()
+	if err != nil {
+		log.Printf("failed to close connection %s", err)
+	}
+}
+
+// call this to make sure connection is not reused
+func (conn *ManagedConnection) Discard() {
+	conn.discard = true
 }
 
 func (conn *ManagedConnection) Close() error {
@@ -127,10 +139,14 @@ func (conn *ManagedConnection) Close() error {
 		debug.PrintStack()
 	}
 
-	// keep alive?
-	if time.Now().Unix()-conn.created >= 60 {
+	// track max usage per connection
+	const maxUsages = 1000
+	numUsed := atomic.LoadUint64(&conn.timesUsed)
+
+	// keep alive? only if within expire time and not discard
+	if !conn.discard && time.Now().Unix()-conn.created < 60 && numUsed < maxUsages {
 		// re-use
-		conn.pool.Put(conn)
+		conn.service.connectionPool.Put(conn)
 		return nil
 	}
 

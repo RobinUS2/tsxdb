@@ -39,6 +39,7 @@ type Instance struct {
 
 	// stats
 	Stats
+	statsTicker *time.Ticker
 }
 
 func (instance *Instance) MetaStore() backend.IMetadata {
@@ -200,9 +201,9 @@ func (instance *Instance) Init() error {
 	}
 
 	// stats ticker
-	ticker := time.NewTicker(60 * time.Second)
+	instance.statsTicker = time.NewTicker(60 * time.Second)
 	go func() {
-		for range ticker.C {
+		for range instance.statsTicker.C {
 			log.Printf("stats %+v", instance.Statistics())
 		}
 	}()
@@ -245,6 +246,9 @@ func (instance *Instance) Start() (err error) {
 func (instance *Instance) Shutdown() error {
 	log.Println("shutting down")
 	atomic.StoreInt32(&instance.shuttingDown, 1)
+
+	// ticker
+	instance.statsTicker.Stop()
 
 	// poll RPC listener shutdown
 	if instance.RpcListener() != nil {

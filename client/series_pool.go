@@ -18,9 +18,9 @@ type SeriesPool struct {
 const poolPrefix = "_"
 
 // Deprecated: only use for testing
-func (pool *SeriesPool) EvictCache() {
+func (pool *SeriesPool) EvictCache() int {
 	// we wipe the whole prefix instead of pool.lru.Clear since that is not concurrent
-	pool.lru.DeletePrefix(poolPrefix)
+	return pool.lru.DeletePrefix(poolPrefix)
 }
 
 func (pool *SeriesPool) Hits() uint64 {

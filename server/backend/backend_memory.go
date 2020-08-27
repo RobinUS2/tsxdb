@@ -130,8 +130,6 @@ func nowSeconds() uint64 {
 	return uint64(time.Now().Unix())
 }
 
-var ErrNoDataFound = errors.New("no data found")
-
 func (instance *MemoryBackend) Read(context ContextRead) (res ReadResult) {
 	namespace := Namespace(context.Namespace)
 	seriesId := Series(context.Series)
@@ -144,7 +142,7 @@ func (instance *MemoryBackend) Read(context ContextRead) (res ReadResult) {
 	}
 	if !available {
 		// not available in the store
-		res.Error = ErrNoDataFound
+		res.Error = types.RpcErrorNoDataFound.Error()
 		instance.dataMux.RUnlock()
 		return
 	}

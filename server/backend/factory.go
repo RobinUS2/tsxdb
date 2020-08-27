@@ -16,9 +16,11 @@ func InstanceFactory(typeStr string, opts map[string]interface{}) IAbstractBacke
 	}
 }
 
+const RedisOptsKey = "redis"
+
 func ExtractRedisOpts(opts map[string]interface{}) *RedisOpts {
 	details := make(map[Namespace]RedisConnectionDetails)
-	namespacesIf, ok := opts["redis"]
+	namespacesIf, ok := opts[RedisOptsKey]
 	if !ok {
 		panic("no redis opts")
 	}

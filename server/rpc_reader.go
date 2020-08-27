@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/RobinUS2/tsxdb/rpc/types"
 	"github.com/RobinUS2/tsxdb/server/backend"
+	"strings"
 	"sync/atomic"
 )
 
@@ -48,7 +49,8 @@ func (endpoint *ReaderEndpoint) Execute(args *types.ReadRequest, resp *types.Rea
 
 		// read
 		readResult := backendInstance.Read(backend.ContextRead{Context: c.Context, From: query.From, To: query.To})
-		if readResult.Error != nil {
+		if readResult.Error != nil && !strings.Contains(readResult.Error.Error(), types.RpcErrorNoDataFound.String()) {
+			// return all errors, except if no data found, since we can query 1-N series, 1 series no data is not a fatal error
 			resp.Error = types.WrapErrorPointer(readResult.Error)
 			return nil
 		}

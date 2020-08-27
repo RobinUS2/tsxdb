@@ -413,7 +413,7 @@ func TestNewRedisBackendMultiConnection(t *testing.T) {
 				From: now - 1,
 				To:   now + 1,
 			})
-			if res.Error == nil || !strings.Contains(res.Error.Error(), "no data found") {
+			if res.Error == nil || !strings.Contains(res.Error.Error(), types.RpcErrorNoDataFound.String()) {
 				t.Error(res.Error)
 			}
 		}

@@ -3,6 +3,7 @@ package rpc
 import (
 	"bufio"
 	"encoding/gob"
+	"github.com/pkg/errors"
 	"io"
 	"net/rpc"
 )
@@ -16,24 +17,38 @@ type GobClientCodec struct {
 
 func (c *GobClientCodec) WriteRequest(r *rpc.Request, body interface{}) (err error) {
 	if err = c.enc.Encode(r); err != nil {
+		err = errors.Wrap(err, "write request failed to encode request")
 		return
 	}
 	if err = c.enc.Encode(body); err != nil {
+		err = errors.Wrap(err, "write request failed to encode body")
 		return
 	}
 	return c.encBuf.Flush()
 }
 
 func (c *GobClientCodec) ReadResponseHeader(r *rpc.Response) error {
-	return c.dec.Decode(r)
+	err := c.dec.Decode(r)
+	if err != nil {
+		return errors.Wrap(err, "read response header")
+	}
+	return nil
 }
 
 func (c *GobClientCodec) ReadResponseBody(body interface{}) error {
-	return c.dec.Decode(body)
+	err := c.dec.Decode(body)
+	if err != nil {
+		return errors.Wrap(err, "read response body")
+	}
+	return nil
 }
 
 func (c *GobClientCodec) Close() error {
-	return c.rwc.Close()
+	err := c.rwc.Close()
+	if err != nil {
+		return errors.Wrap(err, "close connection codec")
+	}
+	return nil
 }
 
 func NewGobClientCodec(rwc io.ReadWriteCloser) *GobClientCodec {

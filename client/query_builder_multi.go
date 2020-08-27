@@ -3,6 +3,7 @@ package client
 import (
 	"fmt"
 	"github.com/RobinUS2/tsxdb/rpc/types"
+	"strings"
 )
 
 type MultiQueryBuilder struct {
@@ -68,14 +69,23 @@ func (multi *MultiQueryBuilder) Execute() (res MultiQueryResult) {
 		request.Queries = append(request.Queries, queryRequest)
 	}
 
-	// execute
+	// execute with retries
 	var response *types.ReadResponse
-	if err := conn.client.Call(types.EndpointReader.String()+"."+types.MethodName, request, &response); err != nil {
+	err = handleRetry(func() error {
+		if err := conn.client.Call(types.EndpointReader.String()+"."+types.MethodName, request, &response); err != nil {
+			return err
+		}
+		if response.Error != nil {
+			if strings.Contains(response.Error.String(), types.RpcErrorNoDataFound.String()) {
+				// not retryable if no data
+				panic(response.Error.String())
+			}
+			return response.Error.Error()
+		}
+		return nil
+	})
+	if err != nil {
 		res.Error = err
-		return
-	}
-	if response.Error != nil {
-		res.Error = response.Error.Error()
 		return
 	}
 
