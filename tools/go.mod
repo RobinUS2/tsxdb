@@ -8,7 +8,7 @@ replace github.com/RobinUS2/tsxdb/rpc/types => ../rpc/types
 
 require (
 	github.com/OneOfOne/xxhash v1.2.8
-	github.com/RobinUS2/tsxdb/rpc v0.0.0-20200827152854-c3ceba3f3c89
+	github.com/RobinUS2/tsxdb/rpc v0.0.0-20200827170956-bf7df6ad9a7f
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/satori/go.uuid v1.2.1-0.20181028125025-b2ce2384e17b
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
