@@ -2,6 +2,8 @@ github.com/OneOfOne/xxhash v1.2.8 h1:31czK/TI9sNkxIKfaUfGlU47BAxQ0ztGgd9vPyqimf8
 github.com/OneOfOne/xxhash v1.2.8/go.mod h1:eZbhyaAYD41SGSSsnmcpxVoRiQ/MPUTjUdIIOT9Um7Q=
 github.com/RobinUS2/tsxdb/client v0.0.0-20200827170956-bf7df6ad9a7f h1:lsHCftPbuD9GRK3QmXC9Dewhf1iN1zN768hzeuUwlsc=
 github.com/RobinUS2/tsxdb/client v0.0.0-20200827170956-bf7df6ad9a7f/go.mod h1:Qj0YcaED3D3ytbH5glNdPv1JMw9hpedhot8A06+avos=
+github.com/RobinUS2/tsxdb/client v0.0.0-20200827184906-63c34ab0136a h1:yX1LTasbKkLsbm+D7NTiCKZXmXT2yQ/jaq8cVaDLKyY=
+github.com/RobinUS2/tsxdb/client v0.0.0-20200827184906-63c34ab0136a/go.mod h1:0Ph/sWRtERojK/iuXCysnMUEC+XMwM78rpAmWidaLBY=
 github.com/alicebob/gopher-json v0.0.0-20200520072559-a9ecdc9d1d3a h1:HbKu58rmZpUGpz5+4FfNmIU+FmZg2P3Xaj2v2bfNWmk=
 github.com/alicebob/gopher-json v0.0.0-20200520072559-a9ecdc9d1d3a/go.mod h1:SGnFV6hVsYE877CKEZ6tDNTjaSXYUk6QqoIK6PrAtcc=
 github.com/alicebob/miniredis/v2 v2.13.2 h1:qHd8pHjZsgovOjOFH6JZAR3quqL3E6R4vWLALTLjSGc=
