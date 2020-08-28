@@ -108,5 +108,14 @@ func (instance *Instance) Init() error {
 			instance.sessionExpire()
 		}
 	}()
+
+	// connection ticker
+	instance.connectionTicker = time.NewTicker(300 * time.Millisecond)
+	go func() {
+		for range instance.connectionTicker.C {
+			instance.connectionExpire()
+		}
+	}()
+
 	return nil
 }

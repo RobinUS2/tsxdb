@@ -17,12 +17,9 @@ type Instance struct {
 	rollupReader    *rollup.Reader
 	shuttingDown    int32 // set to true during shutdown
 
-	pendingRequests int64
+	*Connections
 
-	connections    map[net.Addr]net.Conn
-	connectionsMux sync.RWMutex
-
-	Sessions
+	*Sessions
 
 	rpcListener    net.Listener
 	rpcListenerMux sync.RWMutex
@@ -63,18 +60,6 @@ func New(opts *Opts) *Instance {
 		rpc:          rpc.NewServer(),
 		rollupReader: rollup.NewReader(),
 		Sessions:     NewSessions(),
-		connections:  make(map[net.Addr]net.Conn),
+		Connections:  NewConnections(),
 	}
-}
-
-func (instance *Instance) RegisterConn(conn net.Conn) {
-	instance.connectionsMux.Lock()
-	instance.connections[conn.RemoteAddr()] = conn
-	instance.connectionsMux.Unlock()
-}
-
-func (instance *Instance) RemoveConn(conn net.Conn) {
-	instance.connectionsMux.Lock()
-	delete(instance.connections, conn.RemoteAddr())
-	instance.connectionsMux.Unlock()
 }
