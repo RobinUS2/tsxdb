@@ -11,8 +11,9 @@ func (instance *Instance) Shutdown() error {
 	log.Println("shutting down")
 	atomic.StoreInt32(&instance.shuttingDown, 1)
 
-	// ticker
+	// tickers
 	instance.statsTicker.Stop()
+	instance.sessionTicker.Stop()
 
 	// poll RPC listener shutdown
 	if instance.RpcListener() != nil {
