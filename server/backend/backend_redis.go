@@ -223,14 +223,17 @@ func (instance *RedisBackend) getKeysInRange(ctx ContextRead) ([]string, []uint6
 }
 
 func (instance *RedisBackend) Read(context ContextRead) (res ReadResult) {
-	conn := instance.GetConnection(Namespace(context.Namespace))
-
 	// meta
 	meta, err := instance.getMetadata(Namespace(context.Namespace), context.Series, false)
-	if err != nil || meta.Id < 1 {
-		res.Error = errors.Wrap(err, "missing metadata")
+	if err != nil {
+		res.Error = err
+		return
+	} else if meta.Id < 1 {
+		res.Error = errors.New("missing id")
 		return
 	}
+
+	conn := instance.GetConnection(Namespace(context.Namespace))
 
 	// read
 	keys, _ := instance.getKeysInRange(context)
