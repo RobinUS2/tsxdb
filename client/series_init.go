@@ -16,9 +16,14 @@ func (series *Series) Create() (id uint64, err error) {
 	}
 	conn, err := series.client.GetConnection()
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrap(err, "failed get connection")
 	}
-	defer panicOnErrorClose(conn.Close)
+	defer func() {
+		if err != nil && conn != nil {
+			conn.Discard()
+		}
+		panicOnErrorClose(conn.Close)
+	}()
 	return series.Init(conn)
 }
 

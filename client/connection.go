@@ -125,6 +125,9 @@ func (conn *ManagedConnection) DiscardPool() {
 
 // call this to make sure connection is not reused
 func (conn *ManagedConnection) Discard() {
+	if conn == nil {
+		return
+	}
 	conn.discard = true
 }
 

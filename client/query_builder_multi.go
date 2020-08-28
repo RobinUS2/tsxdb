@@ -3,6 +3,7 @@ package client
 import (
 	"fmt"
 	"github.com/RobinUS2/tsxdb/rpc/types"
+	"github.com/pkg/errors"
 	"strings"
 )
 
@@ -35,10 +36,15 @@ func (multi *MultiQueryBuilder) Execute() (res MultiQueryResult) {
 	// get
 	conn, err := multi.client.GetConnection()
 	if err != nil {
-		res.Error = err
+		res.Error = errors.Wrap(err, "failed get connection")
 		return
 	}
-	defer panicOnErrorClose(conn.Close)
+	defer func() {
+		if res.Error != nil && conn != nil {
+			conn.Discard()
+		}
+		panicOnErrorClose(conn.Close)
+	}()
 
 	// batch request
 	request := types.ReadRequest{

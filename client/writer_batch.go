@@ -64,7 +64,7 @@ func (batch *BatchWriter) Execute() (res WriteResult) {
 		return
 	}
 	defer func() {
-		if res.Error != nil {
+		if res.Error != nil && conn != nil {
 			conn.Discard()
 		}
 		panicOnErrorClose(conn.Close)
