@@ -5,6 +5,7 @@ import (
 	"github.com/RobinUS2/tsxdb/rpc/types"
 	"github.com/RobinUS2/tsxdb/server/backend"
 	"strings"
+	"sync"
 	"sync/atomic"
 )
 
@@ -14,7 +15,15 @@ func init() {
 }
 
 type SeriesMetadataEndpoint struct {
-	server *Instance
+	server    *Instance
+	serverMux sync.RWMutex
+}
+
+func (endpoint *SeriesMetadataEndpoint) getServer() *Instance {
+	endpoint.serverMux.RLock()
+	s := endpoint.server
+	endpoint.serverMux.RUnlock()
+	return s
 }
 
 func NewSeriesMetadataEndpoint() *SeriesMetadataEndpoint {
@@ -29,8 +38,10 @@ func (endpoint *SeriesMetadataEndpoint) Execute(args *types.SeriesMetadataReques
 		}
 	}()
 
+	server := endpoint.getServer()
+
 	// auth
-	if err := endpoint.server.validateSession(args.SessionTicket); err != nil {
+	if err := server.validateSession(args.SessionTicket); err != nil {
 		resp.Error = &types.RpcErrorAuthFailed
 		return nil
 	}
@@ -46,7 +57,7 @@ func (endpoint *SeriesMetadataEndpoint) Execute(args *types.SeriesMetadataReques
 	}
 
 	// metadata
-	result := endpoint.server.metaStore.CreateOrUpdateSeries(&backend.CreateSeries{
+	result := server.metaStore.CreateOrUpdateSeries(&backend.CreateSeries{
 		Series: map[types.SeriesCreateIdentifier]types.SeriesCreateMetadata{
 			args.SeriesCreateIdentifier: args.SeriesCreateMetadata,
 		},
@@ -60,9 +71,9 @@ func (endpoint *SeriesMetadataEndpoint) Execute(args *types.SeriesMetadataReques
 
 	// basic stats
 	if resp.New {
-		atomic.AddUint64(&endpoint.server.numSeriesCreated, 1)
+		atomic.AddUint64(&server.numSeriesCreated, 1)
 	} else {
-		atomic.AddUint64(&endpoint.server.numSeriesInitialised, 1)
+		atomic.AddUint64(&server.numSeriesInitialised, 1)
 	}
 
 	return nil
@@ -72,7 +83,9 @@ func (endpoint *SeriesMetadataEndpoint) register(opts *EndpointOpts) error {
 	if err := opts.server.rpc.RegisterName(endpoint.name().String(), endpoint); err != nil {
 		return err
 	}
+	endpoint.serverMux.Lock()
 	endpoint.server = opts.server
+	endpoint.serverMux.Unlock()
 	return nil
 }
 

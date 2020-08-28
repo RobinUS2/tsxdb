@@ -1,8 +1,8 @@
 package server
 
 import (
-	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -16,6 +16,11 @@ type Sessions struct {
 	sessionTokensMux sync.RWMutex
 	expireSlots      map[FutureUnixTime][]SessionId // unix timestamp in future -> secrets
 	expireSlotsMux   sync.RWMutex
+	expiredSession   uint64
+}
+
+func (s *Sessions) ExpiredSession() uint64 {
+	return atomic.LoadUint64(&s.expiredSession)
 }
 
 func (instance *Instance) getTokenFromSessionId(sessionId SessionId) SessionToken {
@@ -26,6 +31,13 @@ func (instance *Instance) getTokenFromSessionId(sessionId SessionId) SessionToke
 }
 
 func (instance *Instance) registerSessionToken(sessionId SessionId, token SessionToken) {
+	instance.sessionTokensMux.RLock()
+	_, existing := instance.sessionTokens[sessionId]
+	instance.sessionTokensMux.RUnlock()
+	if existing {
+		return
+	}
+
 	instance.sessionTokensMux.Lock()
 	instance.sessionTokens[sessionId] = token
 	instance.sessionTokensMux.Unlock()
@@ -75,13 +87,20 @@ func (instance *Instance) sessionExpire() int {
 		}
 	}
 	instance.Sessions.sessionTokensMux.Unlock()
-	log.Printf("%d expired", numDeleted)
+
+	instance.Sessions.expireSlotsMux.Lock()
+	for _, expiredSlot := range expiredSlots {
+		delete(instance.Sessions.expireSlots, expiredSlot)
+	}
+	instance.Sessions.expireSlotsMux.Unlock()
+
+	atomic.AddUint64(&instance.Sessions.expiredSession, uint64(numDeleted))
 
 	return numDeleted
 }
 
-func NewSessions() Sessions {
-	return Sessions{
+func NewSessions() *Sessions {
+	return &Sessions{
 		sessionTicker: nil,
 		sessionTokens: make(map[SessionId]SessionToken),
 		expireSlots:   make(map[FutureUnixTime][]SessionId),

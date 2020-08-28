@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/RobinUS2/tsxdb/rpc/types"
 	"github.com/RobinUS2/tsxdb/server/backend"
+	"sync"
 	"sync/atomic"
 )
 
@@ -13,7 +14,15 @@ func init() {
 }
 
 type WriterEndpoint struct {
-	server *Instance
+	server    *Instance
+	serverMux sync.RWMutex
+}
+
+func (endpoint *WriterEndpoint) getServer() *Instance {
+	endpoint.serverMux.RLock()
+	s := endpoint.server
+	endpoint.serverMux.RUnlock()
+	return s
 }
 
 func NewWriterEndpoint() *WriterEndpoint {
@@ -28,8 +37,10 @@ func (endpoint *WriterEndpoint) Execute(args *types.WriteRequest, resp *types.Wr
 		}
 	}()
 
+	server := endpoint.getServer()
+
 	// auth
-	if err := endpoint.server.validateSession(args.SessionTicket); err != nil {
+	if err := server.validateSession(args.SessionTicket); err != nil {
 		resp.Error = &types.RpcErrorAuthFailed
 		return nil
 	}
@@ -65,7 +76,7 @@ func (endpoint *WriterEndpoint) Execute(args *types.WriteRequest, resp *types.Wr
 		c.Series = batchItem.Id
 		c.Namespace = batchItem.Namespace
 		c.RequestId = requestId
-		backendInstance, err := endpoint.server.SelectBackend(c)
+		backendInstance, err := server.SelectBackend(c)
 		if err != nil {
 			resp.Error = &types.RpcErrorBackendStrategyNotFound
 			return nil
@@ -94,7 +105,7 @@ func (endpoint *WriterEndpoint) Execute(args *types.WriteRequest, resp *types.Wr
 	resp.Num = numTimesTotal
 
 	// basic stats
-	atomic.AddUint64(&endpoint.server.numValuesWritten, uint64(resp.Num))
+	atomic.AddUint64(&server.numValuesWritten, uint64(resp.Num))
 
 	return nil
 }
@@ -103,7 +114,9 @@ func (endpoint *WriterEndpoint) register(opts *EndpointOpts) error {
 	if err := opts.server.rpc.RegisterName(endpoint.name().String(), endpoint); err != nil {
 		return err
 	}
+	endpoint.serverMux.Lock()
 	endpoint.server = opts.server
+	endpoint.serverMux.Unlock()
 	return nil
 }
 

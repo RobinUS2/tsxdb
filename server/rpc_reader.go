@@ -5,6 +5,7 @@ import (
 	"github.com/RobinUS2/tsxdb/rpc/types"
 	"github.com/RobinUS2/tsxdb/server/backend"
 	"strings"
+	"sync"
 	"sync/atomic"
 )
 
@@ -14,7 +15,15 @@ func init() {
 }
 
 type ReaderEndpoint struct {
-	server *Instance
+	server    *Instance
+	serverMux sync.RWMutex
+}
+
+func (endpoint *ReaderEndpoint) getServer() *Instance {
+	endpoint.serverMux.RLock()
+	s := endpoint.server
+	endpoint.serverMux.RUnlock()
+	return s
 }
 
 func NewReaderEndpoint() *ReaderEndpoint {
@@ -29,8 +38,10 @@ func (endpoint *ReaderEndpoint) Execute(args *types.ReadRequest, resp *types.Rea
 		}
 	}()
 
+	server := endpoint.getServer()
+
 	// auth
-	if err := endpoint.server.validateSession(args.SessionTicket); err != nil {
+	if err := server.validateSession(args.SessionTicket); err != nil {
 		resp.Error = &types.RpcErrorAuthFailed
 		return nil
 	}
@@ -41,7 +52,7 @@ func (endpoint *ReaderEndpoint) Execute(args *types.ReadRequest, resp *types.Rea
 		c := backend.ContextBackend{}
 		c.Series = query.Id
 		c.Namespace = query.Namespace
-		backendInstance, err := endpoint.server.SelectBackend(c)
+		backendInstance, err := server.SelectBackend(c)
 		if err != nil {
 			resp.Error = &types.RpcErrorBackendStrategyNotFound
 			return nil
@@ -55,7 +66,7 @@ func (endpoint *ReaderEndpoint) Execute(args *types.ReadRequest, resp *types.Rea
 			return nil
 		}
 		// aggregation layer
-		rollupResults := endpoint.server.rollupReader.Process(readResult)
+		rollupResults := server.rollupReader.Process(readResult)
 		if rollupResults.Error != nil {
 			resp.Error = types.WrapErrorPointer(rollupResults.Error)
 			return nil
@@ -65,7 +76,7 @@ func (endpoint *ReaderEndpoint) Execute(args *types.ReadRequest, resp *types.Rea
 	resp.Results = finalResults
 
 	// stats
-	atomic.AddUint64(&endpoint.server.numReads, 1)
+	atomic.AddUint64(&server.numReads, 1)
 
 	return nil
 }
@@ -74,7 +85,9 @@ func (endpoint *ReaderEndpoint) register(opts *EndpointOpts) error {
 	if err := opts.server.rpc.RegisterName(endpoint.name().String(), endpoint); err != nil {
 		return err
 	}
+	endpoint.serverMux.Lock()
 	endpoint.server = opts.server
+	endpoint.serverMux.Unlock()
 	return nil
 }
 

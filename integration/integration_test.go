@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/RobinUS2/tsxdb/client"
 	"github.com/RobinUS2/tsxdb/integration"
+	"github.com/RobinUS2/tsxdb/rpc"
 	"github.com/RobinUS2/tsxdb/server"
 	"github.com/RobinUS2/tsxdb/server/backend"
 	"math/rand"
@@ -14,13 +15,55 @@ import (
 
 const token = "verySecure123@#$"
 
-// @todo func TestBatchWritePerformanceRedis(t *testing.T) {
-// @todo func TestBatchReadPerformance(t *testing.T) {
-// @todo func TestBatchReadPerformanceRedis(t *testing.T) {
+// @todo test with real redis cluster
 
 func TestRun(t *testing.T) {
 	if err := integration.Run(); err != nil {
 		t.Error(err)
+	}
+}
+
+func TestConnectionExpire(t *testing.T) {
+	s := NewTestServer(true, true)
+	c := NewTestClient(s)
+
+	done := make(chan bool, 1)
+	duration := 2 * rpc.DefaultTimeout // 2x the expire timeout
+	ticker := time.NewTicker(100 * time.Millisecond)
+	time.AfterFunc(duration, func() {
+		ticker.Stop()
+		done <- true
+	})
+	go func() {
+		previousExpiredConnections := uint64(0)
+		previousExpiredSessions := uint64(0)
+		for range ticker.C {
+			// write
+			{
+				now := c.Now()
+				series := c.Series("expireConnectionSeries")
+				writeValue := rand.Float64()
+				result := series.Write(now, writeValue)
+				if result.Error != nil {
+					t.Error(result.Error)
+				}
+			}
+			expiredConnections := s.ExpiredConnections()
+			expiredSessions := s.ExpiredSession()
+			if expiredConnections != previousExpiredConnections || expiredSessions != previousExpiredSessions {
+				t.Logf("expired connections %d expired sessions %d", expiredConnections, expiredSessions)
+			}
+			previousExpiredConnections = expiredConnections
+			previousExpiredSessions = expiredSessions
+		}
+	}()
+	<-done
+
+	if s.ExpiredConnections() < 2 {
+		t.Error("expect at least 2 expired connections (60 seconds expire time, 2 minute window)")
+	}
+	if s.ExpiredSession() < 500 {
+		t.Error("expect at least 500 expired sessions (1200 writes, 60 seconds timeout, 600 should have expired)")
 	}
 }
 

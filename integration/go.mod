@@ -15,6 +15,7 @@ replace github.com/RobinUS2/tsxdb/tools => ../tools
 replace github.com/RobinUS2/tsxdb/telnet => ../telnet
 
 require (
-	github.com/RobinUS2/tsxdb/client v0.0.0-20200827185515-17e4284632cc
+	github.com/RobinUS2/tsxdb/client v0.0.0-20200828082527-116be78017fa
+	github.com/RobinUS2/tsxdb/rpc v0.0.0-20200828082527-116be78017fa
 	github.com/RobinUS2/tsxdb/server v0.0.0-20190523121601-0130f23bf035
 )

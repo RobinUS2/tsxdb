@@ -17,9 +17,9 @@ type Instance struct {
 	rollupReader    *rollup.Reader
 	shuttingDown    int32 // set to true during shutdown
 
-	Connections
+	*Connections
 
-	Sessions
+	*Sessions
 
 	rpcListener    net.Listener
 	rpcListenerMux sync.RWMutex

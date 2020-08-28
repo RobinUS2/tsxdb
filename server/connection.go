@@ -17,8 +17,13 @@ type Connections struct {
 	connectionsMux   sync.RWMutex
 	connectionTicker *time.Ticker
 
-	expireSlots    map[FutureUnixTime][]net.Conn // unix timestamp in future -> connection
-	expireSlotsMux sync.RWMutex
+	expireSlots        map[FutureUnixTime][]net.Conn // unix timestamp in future -> connection
+	expireSlotsMux     sync.RWMutex
+	expiredConnections uint64
+}
+
+func (c *Connections) ExpiredConnections() uint64 {
+	return atomic.LoadUint64(&c.expiredConnections)
 }
 
 const ConnectionTimeout = rpc.DefaultTimeout
@@ -145,13 +150,19 @@ func (instance *Instance) connectionExpire() int {
 			numDeleted++
 		}
 	}
-	log.Printf("%d expired", numDeleted)
+	instance.Connections.expireSlotsMux.Lock()
+	for _, expiredSlot := range expiredSlots {
+		delete(instance.Connections.expireSlots, expiredSlot)
+	}
+	instance.Connections.expireSlotsMux.Unlock()
+	atomic.AddUint64(&instance.Connections.expiredConnections, uint64(numDeleted))
 
 	return numDeleted
 }
 
-func NewConnections() Connections {
-	return Connections{
+func NewConnections() *Connections {
+	return &Connections{
 		connections: make(map[net.Addr]net.Conn),
+		expireSlots: make(map[FutureUnixTime][]net.Conn),
 	}
 }
