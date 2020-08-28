@@ -14,7 +14,7 @@ type Sessions struct {
 	sessionTicker    *time.Ticker
 	sessionTokens    map[SessionId]SessionToken // session id => secret
 	sessionTokensMux sync.RWMutex
-	expireSlots      map[FutureUnixTime][]SessionId // unix timestamp -> secrets
+	expireSlots      map[FutureUnixTime][]SessionId // unix timestamp in future -> secrets
 	expireSlotsMux   sync.RWMutex
 }
 
