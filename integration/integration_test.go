@@ -30,9 +30,16 @@ func TestConnectionExpire(t *testing.T) {
 	done := make(chan bool, 1)
 	duration := 2 * rpc.DefaultTimeout // 2x the expire timeout
 	ticker := time.NewTicker(100 * time.Millisecond)
-	time.AfterFunc(duration, func() {
+	doneFn := func() {
+		if ticker == nil {
+			return
+		}
 		ticker.Stop()
+		ticker = nil
 		done <- true
+	}
+	time.AfterFunc(duration, func() {
+		doneFn()
 	})
 	go func() {
 		previousExpiredConnections := uint64(0)
@@ -55,6 +62,11 @@ func TestConnectionExpire(t *testing.T) {
 			}
 			previousExpiredConnections = expiredConnections
 			previousExpiredSessions = expiredSessions
+
+			if expiredConnections >= 2 && expiredSessions >= 10 {
+				doneFn()
+				break
+			}
 		}
 	}()
 	<-done
@@ -62,8 +74,8 @@ func TestConnectionExpire(t *testing.T) {
 	if s.ExpiredConnections() < 2 {
 		t.Error("expect at least 2 expired connections (60 seconds expire time, 2 minute window)")
 	}
-	if s.ExpiredSession() < 500 {
-		t.Error("expect at least 500 expired sessions (1200 writes, 60 seconds timeout, 600 should have expired)")
+	if s.ExpiredSession() < 10 {
+		t.Error("expect at least a bunch of expired sessions (1200 writes, 60 seconds timeout, 600 should have expired)")
 	}
 }
 
