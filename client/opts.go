@@ -13,7 +13,7 @@ type Opts struct {
 func NewOpts() *Opts {
 	return &Opts{
 		OptsConnection:  rpc.NewOptsConnection(),
-		SeriesCacheSize: 1000 * 1000, // by default keep 1MM series metadata IDs in-memory
+		SeriesCacheSize: 100 * 1000, // by default keep 100K series metadata IDs in-memory
 		EagerInitSeries: true,
 	}
 }

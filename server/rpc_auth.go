@@ -12,7 +12,6 @@ import (
 	insecureRand "math/rand"
 	"sync"
 	"sync/atomic"
-	"time"
 )
 
 func init() {
@@ -77,18 +76,7 @@ func (endpoint *AuthEndpoint) Execute(args *types.AuthRequest, resp *types.AuthR
 		resp.SessionSecret = base64.StdEncoding.EncodeToString(token)
 
 		// store in server
-		server.sessionTokensMux.Lock()
-		server.sessionTokens[resp.SessionId] = token
-		server.sessionTokensMux.Unlock()
-
-		// very simplistic way of getting rid of the tokens later
-		go func() {
-			// @todo more efficient way instead of having timers and lots of routines
-			time.Sleep(ConnectionTimeout + (1 * time.Second))
-			server.sessionTokensMux.Lock()
-			delete(server.sessionTokens, resp.SessionId)
-			server.sessionTokensMux.Unlock()
-		}()
+		server.registerSessionToken(SessionId(resp.SessionId), token)
 	} else {
 		// stage 2
 		if err := server.validateSession(args.SessionTicket); err != nil {
@@ -125,9 +113,7 @@ func (instance *Instance) validateSession(ticket types.SessionTicket) error {
 	if ticket.Nonce == 0 {
 		return errors.New("missing session nonce")
 	}
-	instance.sessionTokensMux.RLock()
-	token := instance.sessionTokens[ticket.Id]
-	instance.sessionTokensMux.RUnlock()
+	token := instance.getTokenFromSessionId(SessionId(ticket.Id))
 	if len(token) != 32 {
 		return errors.New("session continuation token not found")
 	}

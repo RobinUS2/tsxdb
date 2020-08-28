@@ -5,14 +5,19 @@ import (
 	"github.com/pkg/errors"
 )
 
-func (series *Series) NoOp() error {
-
+func (series *Series) NoOp() (err error) {
 	// get
 	conn, err := series.client.GetConnection()
 	if err != nil {
-		return err
+		err = errors.Wrap(err, "failed get connection")
+		return
 	}
-	defer panicOnErrorClose(conn.Close)
+	defer func() {
+		if err != nil && conn != nil {
+			conn.Discard()
+		}
+		panicOnErrorClose(conn.Close)
+	}()
 
 	// session data
 	return handleRetry(func() error {

@@ -157,8 +157,14 @@ func (instance *RedisBackend) Write(context ContextWrite, timestamps []uint64, v
 
 	// meta
 	meta, err := instance.getMetadata(Namespace(context.Namespace), context.Series, false)
-	if err != nil || meta.Id < 1 {
+	if err != nil {
+		if strings.Contains(err.Error(), types.RpcErrorSeriesExpired.String()) {
+			// series expired, not a real problem
+			return nil
+		}
 		return err
+	} else if meta.Id < 1 {
+		return errors.New("missing id")
 	}
 
 	// get redis pipeline
@@ -217,14 +223,17 @@ func (instance *RedisBackend) getKeysInRange(ctx ContextRead) ([]string, []uint6
 }
 
 func (instance *RedisBackend) Read(context ContextRead) (res ReadResult) {
-	conn := instance.GetConnection(Namespace(context.Namespace))
-
 	// meta
 	meta, err := instance.getMetadata(Namespace(context.Namespace), context.Series, false)
-	if err != nil || meta.Id < 1 {
-		res.Error = errors.Wrap(err, "missing metadata")
+	if err != nil {
+		res.Error = err
+		return
+	} else if meta.Id < 1 {
+		res.Error = errors.New("missing id")
 		return
 	}
+
+	conn := instance.GetConnection(Namespace(context.Namespace))
 
 	// read
 	keys, _ := instance.getKeysInRange(context)
@@ -508,7 +517,7 @@ func (instance *RedisBackend) getMetadataFromStorage(namespace Namespace, id uin
 				// @todo deal with in other way
 				panic(res.Error)
 			}
-			err = errors.Wrapf(types.RpcErrorNoDataFound.Error(), "series %d expired", id)
+			err = errors.Wrapf(types.RpcErrorNoDataFound.Error(), fmt.Sprintf("%s (id=%d)", types.RpcErrorSeriesExpired.String(), id))
 			return
 		}
 	}

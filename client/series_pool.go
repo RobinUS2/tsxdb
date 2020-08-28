@@ -9,6 +9,8 @@ import (
 
 // series cache, makes sure initialised series are reused
 
+const DefaultPoolTtl = 1 * time.Hour
+
 type SeriesPool struct {
 	eagerInitMux sync.Mutex
 	hits         uint64
@@ -44,7 +46,7 @@ func (pool *SeriesPool) Get(name string) *Series {
 }
 
 func (pool *SeriesPool) Set(name string, value *Series) {
-	pool.lru.Set(poolPrefix+name, value, 24*time.Hour)
+	pool.lru.Set(poolPrefix+name, value, DefaultPoolTtl)
 }
 
 func NewSeriesPool(clientOpts *Opts) *SeriesPool {
