@@ -35,6 +35,124 @@ func TestNewRedisBackendSingleConnection(t *testing.T) {
 	}
 }
 
+func TestWriteZeroValues(t *testing.T) {
+	opts := &backend.RedisOpts{
+		ConnectionDetails: map[backend.Namespace]backend.RedisConnectionDetails{
+			backend.RedisDefaultConnectionNamespace: {
+				Type: backend.RedisMemory,
+			},
+			backend.Namespace(5): {
+				Database: 5,
+				Type:     backend.RedisMemory,
+			},
+		},
+	}
+	b := backend.NewRedisBackend(opts)
+	b.SetReverseApi(b) // we implement this
+	if b == nil {
+		t.Error()
+	}
+	if err := b.Init(); err != nil {
+		t.Error(err)
+	}
+
+	// create
+	var idFirst uint64
+	name := fmt.Sprintf("series-redis-%d", time.Now().UnixNano())
+	{
+		createIdentifier := types.SeriesCreateIdentifier(1234)
+		res := b.CreateOrUpdateSeries(&backend.CreateSeries{
+			Series: map[types.SeriesCreateIdentifier]types.SeriesCreateMetadata{
+				createIdentifier: {
+					SeriesMetadata: types.SeriesMetadata{
+						Namespace: 1,
+						Name:      name,
+						Tags:      []string{"a", "b"},
+					},
+					SeriesCreateIdentifier: createIdentifier,
+				},
+			},
+		})
+		if res == nil {
+			t.Error()
+		}
+		if res.Error != nil {
+			t.Error(res.Error)
+		}
+		result := res.Results[createIdentifier]
+		if result.Id < 1 {
+			t.Error("missing id")
+		}
+		idFirst = result.Id
+		if !result.New {
+			t.Error("should be new")
+		}
+	}
+
+	// simple write
+	now := uint64(time.Now().Unix() * 1000)
+	writeVal := rand.Float64()
+	{
+		reqId := backend.NewRequestId()
+		if err := b.Write(backend.ContextWrite{
+			Context: backend.Context{
+				Namespace: 1,
+				Series:    idFirst,
+				RequestId: reqId,
+			},
+		}, []uint64{now}, []float64{writeVal}); err != nil {
+			t.Error(err)
+		}
+		if err := b.FlushPendingWrites(reqId); err != nil {
+			t.Error(err)
+		}
+	}
+	// write 0
+	{
+		now := uint64(time.Now().Unix() * 1000) + 1000
+		writeVal := 0.0
+		{
+			reqId := backend.NewRequestId()
+			if err := b.Write(backend.ContextWrite{
+				Context: backend.Context{
+					Namespace: 1,
+					Series:    idFirst,
+					RequestId: reqId,
+				},
+			}, []uint64{now}, []float64{writeVal}); err != nil {
+				t.Error(err)
+			}
+			if err := b.FlushPendingWrites(reqId); err != nil {
+				t.Error(err)
+			}
+		}
+	}
+
+
+	// simple read
+	{
+		res := b.Read(backend.ContextRead{
+			Context: backend.Context{
+				Series:    idFirst,
+				Namespace: 1,
+			},
+			From: now - (86400 * 1000 * 2),
+			To:   now + (86400 * 1000 * 1),
+		})
+		if res.Error != nil {
+			t.Error(res.Error)
+		}
+		if len(res.Results) != 2 {
+			t.Error("should have 2 results")
+			t.FailNow()
+		}
+		if res.Results[1] != 0.0 {
+			t.Errorf("last value should be 0.0 found %f", res.Results[1])
+			t.FailNow()
+		}
+	}
+}
+
 func TestNewRedisBackendMultiConnection(t *testing.T) {
 	opts := &backend.RedisOpts{
 		ConnectionDetails: map[backend.Namespace]backend.RedisConnectionDetails{

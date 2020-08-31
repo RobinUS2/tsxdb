@@ -254,11 +254,18 @@ func (instance *RedisBackend) Read(context ContextRead) (res ReadResult) {
 			if len(memberSplit) != 2 {
 				panic("should always be 2 parts")
 			}
-			floatValue, err := strconv.ParseFloat(memberSplit[0], 64)
-			if err != nil {
-				res.Error = fmt.Errorf("parse float err %s,%v: %s", key, value, err)
-				return
+			var floatValue float64
+			var err error
+			if memberSplit[0] == "." {
+				floatValue = 0.0
+			} else {
+				floatValue, err = strconv.ParseFloat(memberSplit[0], 64)
+				if err != nil {
+					res.Error = fmt.Errorf("parse float err %s,%v: %s", key, value, err)
+					return
+				}
 			}
+
 			if resultMap == nil {
 				resultMap = make(map[uint64]float64)
 			}
