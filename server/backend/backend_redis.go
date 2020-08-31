@@ -256,7 +256,7 @@ func (instance *RedisBackend) Read(context ContextRead) (res ReadResult) {
 			}
 			floatValue, err := strconv.ParseFloat(memberSplit[0], 64)
 			if err != nil {
-				res.Error = err
+				res.Error = fmt.Errorf("parse float err %s,%v: %s", key, value, err)
 				return
 			}
 			if resultMap == nil {
