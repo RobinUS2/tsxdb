@@ -254,6 +254,9 @@ func (instance *RedisBackend) Read(context ContextRead) (res ReadResult) {
 			if len(memberSplit) != 2 {
 				panic("should always be 2 parts")
 			}
+			if memberSplit[0] == "." {
+				continue
+			}
 			floatValue, err := strconv.ParseFloat(memberSplit[0], 64)
 			if err != nil {
 				res.Error = fmt.Errorf("parse float err %s,%v: %s", key, value, err)
