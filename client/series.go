@@ -1,8 +1,10 @@
 package client
 
 import (
+	"log"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 type Series struct {
@@ -14,8 +16,18 @@ type Series struct {
 	name      string
 	metaMux   sync.RWMutex
 
-	initMux sync.Mutex
+	initState    InitState
+	initStateMux sync.RWMutex
+	initMux      sync.Mutex
 }
+
+type InitState int64
+
+const InitialState = 0
+const TimeoutState = 1
+const PanicState = 2
+const SuccessState = 3
+const ErrorState = 4
 
 func (series *Series) Id() uint64 {
 	return atomic.LoadUint64(&series.id)
@@ -49,6 +61,19 @@ func (series *Series) Tags() []string {
 	return v
 }
 
+func (series *Series) InitState() InitState {
+	series.initStateMux.RLock()
+	state := series.initState
+	series.initStateMux.RUnlock()
+	return state
+}
+
+func (series *Series) SetInitState(state InitState) {
+	series.initStateMux.Lock()
+	series.initState = state
+	series.initStateMux.Unlock()
+}
+
 func (client *Instance) Series(name string, opts ...SeriesOpt) *Series {
 	s := NewSeries(name, client)
 	isNew := s.Id() < 1
@@ -59,18 +84,54 @@ func (client *Instance) Series(name string, opts ...SeriesOpt) *Series {
 	// initialise
 	s.applyOpts(opts)
 
-	// eager init?
 	if client.opts.EagerInitSeries {
-		// async to not block it, errors are ignored, since this is just a best effort, will be done (and error-ed) in write anyway later if retried
-		go func() {
-			// prevent a ton of concurrent inits, not good for opening lots of connections at once
-			client.seriesPool.eagerInitMux.Lock()
-			defer client.seriesPool.eagerInitMux.Unlock()
-			_, _ = s.Create()
-		}()
+		client.EagerInitSeries(s)
 	}
 
 	return s
+}
+
+const EagerSeriesInitTimeout = time.Second * 10
+
+func (client *Instance) EagerInitSeries(series *Series) {
+	// async to not block it, errors are ignored, since this is just a best effort, will be done (and error-ed) in write anyway later if retried
+	go func() {
+		// prevent a ton of concurrent inits, not good for opening lots of connections at once
+
+		client.seriesPool.eagerInitMux.Lock()
+		defer func() {
+			client.seriesPool.eagerInitMux.Unlock()
+		}()
+
+		finished := make(chan bool, 1)
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("error initing series %v", r)
+					series.SetInitState(PanicState)
+				}
+			}()
+			if client.preEagerInitFn != nil {
+				client.preEagerInitFn(series)
+			}
+			_, err := series.Create()
+			if err != nil {
+				log.Printf("error eager init for %s %s", series.Name(), err)
+				series.SetInitState(ErrorState)
+			} else {
+				series.SetInitState(SuccessState)
+			}
+			finished <- true
+		}()
+
+		select {
+		case <-finished:
+			return
+		case <-time.After(EagerSeriesInitTimeout):
+			series.SetInitState(TimeoutState)
+			return
+		}
+	}()
 }
 
 // Deprecated: use *Instance.Series() instead
