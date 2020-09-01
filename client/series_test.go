@@ -8,12 +8,12 @@ import (
 
 func TestNewSeriesTimeout(t *testing.T) {
 	c := client.DefaultClient()
-	c.SetPreEagerInitFn(getTimeoutFn(time.Second * 15))
+	c.SetPreEagerInitFn(getTimeoutFn(client.EagerSeriesInitTimeout + time.Second))
 	series := c.Series("test", client.NewSeriesNamespace(1))
 	if series.Namespace() != 1 {
 		t.Error(series.Namespace())
 	}
-	time.Sleep(time.Second * 15)
+	time.Sleep(client.EagerSeriesInitTimeout + time.Second)
 	if series.InitState() != 1 {
 		t.Errorf("expected series to be not created due to timeout %d", series.InitState())
 	}

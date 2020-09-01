@@ -90,35 +90,36 @@ func (client *Instance) Series(name string, opts ...SeriesOpt) *Series {
 	return s
 }
 
-const eagerSeriesInitTimeout = time.Second * 10
+const EagerSeriesInitTimeout = time.Second * 10
 
 func (client *Instance) EagerInitSeries(series *Series) {
 	// async to not block it, errors are ignored, since this is just a best effort, will be done (and error-ed) in write anyway later if retried
 	go func() {
 		// prevent a ton of concurrent inits, not good for opening lots of connections at once
+
 		client.seriesPool.eagerInitMux.Lock()
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("error initing series %v", r)
+				series.SetInitState(PanicState)
+			}
+			client.seriesPool.eagerInitMux.Unlock()
+		}()
+
 		finished := make(chan bool, 1)
 		go func() {
-			defer func() {
-				if r := recover(); r != nil {
-					log.Printf("error initing series %v", r)
-					series.SetInitState(PanicState)
-				}
-				client.seriesPool.eagerInitMux.Unlock()
-				finished <- true
-			}()
 			if client.preEagerInitFn != nil {
 				client.preEagerInitFn(series)
 			}
-			_, _ = series.Create()
+			_, _ = series.Create() // @todo err
 			series.SetInitState(SuccessState)
+			finished <- true
 		}()
 
 		select {
 		case <-finished:
 			return
-		case <-time.After(eagerSeriesInitTimeout):
-			client.seriesPool.eagerInitMux.Unlock()
+		case <-time.After(EagerSeriesInitTimeout):
 			series.SetInitState(TimeoutState)
 			return
 		}
