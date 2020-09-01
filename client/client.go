@@ -6,12 +6,23 @@ type Instance struct {
 	connectionPool *ConnectionPool
 	closing        bool
 	seriesPool     *SeriesPool
+
+	*EagerInitSeriesHelper
+}
+
+type EagerInitSeriesHelper struct {
+	preEagerInitFn func(series *Series)
+}
+
+func (helper *EagerInitSeriesHelper) SetPreEagerInitFn(f func(series *Series)) {
+	helper.preEagerInitFn = f
 }
 
 func New(opts *Opts) *Instance {
 	i := &Instance{
-		opts:       opts,
-		seriesPool: NewSeriesPool(opts),
+		opts:                  opts,
+		seriesPool:            NewSeriesPool(opts),
+		EagerInitSeriesHelper: &EagerInitSeriesHelper{},
 	}
 	if err := i.initConnectionPool(); err != nil {
 		panic(err)
