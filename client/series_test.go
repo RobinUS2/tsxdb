@@ -34,15 +34,16 @@ func TestNewSeriesPanic(t *testing.T) {
 	}
 }
 
-func TestNewSeriesSuccess(t *testing.T) {
+func TestNewSeriesError(t *testing.T) {
+	// local client doesn't start tsxdb so success would be an error state
 	c := client.DefaultClient()
 	series := c.Series("test", client.NewSeriesNamespace(1))
 	if series.Namespace() != 1 {
 		t.Error(series.Namespace())
 	}
 	time.Sleep(time.Second * 1)
-	if series.InitState() != 3 {
-		t.Errorf("expected series to be created %d", series.InitState())
+	if series.InitState() != 4 {
+		t.Errorf("expected series to error %d", series.InitState())
 	}
 }
 
