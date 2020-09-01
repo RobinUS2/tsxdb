@@ -27,6 +27,7 @@ const InitialState = 0
 const TimeoutState = 1
 const PanicState = 2
 const SuccessState = 3
+const ErrorState = 4
 
 func (series *Series) Id() uint64 {
 	return atomic.LoadUint64(&series.id)
@@ -116,8 +117,10 @@ func (client *Instance) EagerInitSeries(series *Series) {
 			_, err := series.Create()
 			if err != nil {
 				log.Printf("error eager init for %s %s", series.Name(), err)
+				series.SetInitState(ErrorState)
+			} else {
+				series.SetInitState(SuccessState)
 			}
-			series.SetInitState(SuccessState)
 			finished <- true
 		}()
 
