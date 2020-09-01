@@ -99,15 +99,17 @@ func (client *Instance) EagerInitSeries(series *Series) {
 
 		client.seriesPool.eagerInitMux.Lock()
 		defer func() {
-			if r := recover(); r != nil {
-				log.Printf("error initing series %v", r)
-				series.SetInitState(PanicState)
-			}
 			client.seriesPool.eagerInitMux.Unlock()
 		}()
 
 		finished := make(chan bool, 1)
 		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("error initing series %v", r)
+					series.SetInitState(PanicState)
+				}
+			}()
 			if client.preEagerInitFn != nil {
 				client.preEagerInitFn(series)
 			}
