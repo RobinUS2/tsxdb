@@ -111,7 +111,10 @@ func (client *Instance) EagerInitSeries(series *Series) {
 			if client.preEagerInitFn != nil {
 				client.preEagerInitFn(series)
 			}
-			_, _ = series.Create() // @todo err
+			_, err := series.Create() // @todo err
+			if err != nil {
+				log.Printf("error eager init for %s %s", series.Name(), err)
+			}
 			series.SetInitState(SuccessState)
 			finished <- true
 		}()
