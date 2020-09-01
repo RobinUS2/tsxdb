@@ -36,9 +36,6 @@ func TestNewSeriesPanic(t *testing.T) {
 
 func TestNewSeriesSuccess(t *testing.T) {
 	c := client.DefaultClient()
-	c.SetPreEagerInitFn(func(series *client.Series) {
-		panic("should error")
-	})
 	series := c.Series("test", client.NewSeriesNamespace(1))
 	if series.Namespace() != 1 {
 		t.Error(series.Namespace())
