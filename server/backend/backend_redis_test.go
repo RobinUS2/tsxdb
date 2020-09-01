@@ -109,7 +109,7 @@ func TestWriteZeroValues(t *testing.T) {
 	}
 	// write 0
 	{
-		now := uint64(time.Now().Unix() * 1000) + 1000
+		now := uint64(time.Now().Unix()*1000) + 1000
 		writeVal := 0.0
 		{
 			reqId := backend.NewRequestId()
@@ -127,7 +127,6 @@ func TestWriteZeroValues(t *testing.T) {
 			}
 		}
 	}
-
 
 	// simple read
 	{
