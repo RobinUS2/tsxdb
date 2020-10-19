@@ -7,6 +7,7 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	lock "github.com/bsm/redislock"
 	"github.com/go-redis/redis/v7"
+	"github.com/jinzhu/now"
 	"github.com/karlseguin/ccache/v2"
 	"github.com/patrickmn/go-cache"
 	"github.com/pkg/errors"
@@ -162,9 +163,6 @@ func (instance *RedisBackend) Write(context ContextWrite, timestamps []uint64, v
 			// series expired, not a real problem
 			return nil
 		}
-		return err
-	} else if meta.Id < 1 {
-		return errors.New("missing id")
 	}
 
 	// get redis pipeline
@@ -174,7 +172,12 @@ func (instance *RedisBackend) Write(context ContextWrite, timestamps []uint64, v
 	}
 
 	// when to expire?
-	expireTime := time.Unix(int64(meta.TtlExpire), 0)
+	var expireTime time.Time
+	if meta.TtlExpire == 0 {
+		expireTime = now.EndOfDay()
+	} else {
+		expireTime = time.Unix(int64(meta.TtlExpire), 0)
+	}
 
 	// add commands to redis pipeline
 	for key, members := range keyValues {
