@@ -243,8 +243,8 @@ func (instance *RedisBackend) Read(context ContextRead) (res ReadResult) {
 	var resultMap map[uint64]float64
 	for _, key := range keys {
 		read := conn.ZRangeByScoreWithScores(key, &redis.ZRangeBy{
-			Min: FloatToString(float64(context.From)),
-			Max: FloatToString(float64(context.To)),
+			Min: FloatToString(float64(context.From - 1)), // pad 1 ms to make sure the scores are available due to float rounding
+			Max: FloatToString(float64(context.To + 1)),
 		})
 		if filterNilErr(read.Err()) != nil {
 			res.Error = read.Err()

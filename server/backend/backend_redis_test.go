@@ -5,6 +5,7 @@ import (
 	"github.com/RobinUS2/tsxdb/rpc/types"
 	"github.com/RobinUS2/tsxdb/server/backend"
 	"github.com/go-redis/redis/v7"
+	"log"
 	"math"
 	"math/rand"
 	"strconv"
@@ -135,12 +136,13 @@ func TestWriteZeroValues(t *testing.T) {
 				Series:    idFirst,
 				Namespace: 1,
 			},
-			From: now - (86400 * 1000 * 2),
-			To:   now + (86400 * 1000 * 1),
+			From: now,        // checking strict boundaries
+			To:   now + 1000, // checking strict boundaries
 		})
 		if res.Error != nil {
 			t.Error(res.Error)
 		}
+		log.Printf("%+v", res.Results)
 		if len(res.Results) != 2 {
 			t.Error("should have 2 results")
 			t.FailNow()
