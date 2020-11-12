@@ -7,6 +7,7 @@ import (
 	"github.com/alicebob/miniredis/v2"
 	lock "github.com/bsm/redislock"
 	"github.com/go-redis/redis/v7"
+	"github.com/jinzhu/now"
 	"github.com/karlseguin/ccache/v2"
 	"github.com/patrickmn/go-cache"
 	"github.com/pkg/errors"
@@ -162,9 +163,6 @@ func (instance *RedisBackend) Write(context ContextWrite, timestamps []uint64, v
 			// series expired, not a real problem
 			return nil
 		}
-		return err
-	} else if meta.Id < 1 {
-		return errors.New("missing id")
 	}
 
 	// get redis pipeline
@@ -174,7 +172,12 @@ func (instance *RedisBackend) Write(context ContextWrite, timestamps []uint64, v
 	}
 
 	// when to expire?
-	expireTime := time.Unix(int64(meta.TtlExpire), 0)
+	var expireTime time.Time
+	if meta.TtlExpire == 0 {
+		expireTime = now.EndOfDay()
+	} else {
+		expireTime = time.Unix(int64(meta.TtlExpire), 0)
+	}
 
 	// add commands to redis pipeline
 	for key, members := range keyValues {
@@ -240,8 +243,8 @@ func (instance *RedisBackend) Read(context ContextRead) (res ReadResult) {
 	var resultMap map[uint64]float64
 	for _, key := range keys {
 		read := conn.ZRangeByScoreWithScores(key, &redis.ZRangeBy{
-			Min: FloatToString(float64(context.From)),
-			Max: FloatToString(float64(context.To)),
+			Min: FloatToString(float64(context.From - 1)), // pad 1 ms to make sure the scores are available due to float rounding
+			Max: FloatToString(float64(context.To + 1)),
 		})
 		if filterNilErr(read.Err()) != nil {
 			res.Error = read.Err()
