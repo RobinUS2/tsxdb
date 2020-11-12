@@ -501,8 +501,8 @@ func TestNewRedisBackendMultiConnection(t *testing.T) {
 			if res.Error != nil {
 				t.Error(res.Error)
 			}
-			if len(res.Results) != 1 {
-				t.Errorf("expect 1 result %+v", res.Results)
+			if len(res.Results) != 2 {
+				t.Errorf("expect 2 result %+v, %d", res.Results, now)
 			}
 			var ts uint64
 			var val float64
