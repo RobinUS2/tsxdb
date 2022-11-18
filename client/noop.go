@@ -1,7 +1,7 @@
 package client
 
 import (
-	"github.com/Route42/tsxdb/rpc/types"
+	"github.com/RobinUS2/tsxdb/rpc/types"
 	"github.com/pkg/errors"
 )
 

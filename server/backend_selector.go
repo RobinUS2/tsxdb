@@ -1,7 +1,7 @@
 package server
 
 import (
-	"github.com/Route42/tsxdb/server/backend"
+	"./backend"
 )
 
 func (instance *Instance) SelectBackend(context backend.ContextBackend) (backend.AbstractBackend, error) {

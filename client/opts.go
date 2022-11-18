@@ -1,7 +1,7 @@
 package client
 
 import (
-	"github.com/Route42/tsxdb/rpc"
+	"github.com/RobinUS2/tsxdb/rpc"
 )
 
 type Opts struct {
