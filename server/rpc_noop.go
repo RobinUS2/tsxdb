@@ -1,7 +1,9 @@
 package server
 
 import (
+	"fmt"
 	"github.com/RobinUS2/tsxdb/rpc/types"
+	"sync"
 )
 
 func init() {
@@ -10,7 +12,15 @@ func init() {
 }
 
 type NoOpEndpoint struct {
-	server *Instance
+	server    *Instance
+	serverMux sync.RWMutex
+}
+
+func (endpoint *NoOpEndpoint) getServer() *Instance {
+	endpoint.serverMux.RLock()
+	s := endpoint.server
+	endpoint.serverMux.RUnlock()
+	return s
 }
 
 func NewNoOpEndpoint() *NoOpEndpoint {
@@ -18,8 +28,16 @@ func NewNoOpEndpoint() *NoOpEndpoint {
 }
 
 func (endpoint *NoOpEndpoint) Execute(args *types.ReadRequest, resp *types.ReadResponse) error {
+	// deal with panics, else the whole RPC server could crash
+	defer func() {
+		if r := recover(); r != nil {
+			resp.Error = types.WrapErrorPointer(fmt.Errorf("%s", r))
+		}
+	}()
+
 	// auth
-	if err := endpoint.server.validateSession(args.SessionTicket); err != nil {
+	server := endpoint.getServer()
+	if err := server.validateSession(args.SessionTicket); err != nil {
 		resp.Error = &types.RpcErrorAuthFailed
 		return nil
 	}
@@ -30,7 +48,9 @@ func (endpoint *NoOpEndpoint) register(opts *EndpointOpts) error {
 	if err := opts.server.rpc.RegisterName(endpoint.name().String(), endpoint); err != nil {
 		return err
 	}
+	endpoint.serverMux.Lock()
 	endpoint.server = opts.server
+	endpoint.serverMux.Unlock()
 	return nil
 }
 

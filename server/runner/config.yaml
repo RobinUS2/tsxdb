@@ -1,0 +1,13 @@
+connection:
+  listen_port: 1234
+  listen_host: 0.0.0.0
+  auth_token: "verySecure"
+telnet_port: 5555
+telnet_host: "0.0.0.0" # disable this if you want to listen only on localhost
+backends:
+  - type: redis
+    identifier: "memory"
+    metadata: true
+    options:
+      redis:
+        - type: memory

@@ -1,11 +1,10 @@
 package server_test
 
 import (
-	"../server"
 	"encoding/base64"
 	"fmt"
-	"github.com/RobinUS2/tsxdb/client"
 	"github.com/RobinUS2/tsxdb/rpc/types"
+	"github.com/RobinUS2/tsxdb/server"
 	"github.com/RobinUS2/tsxdb/tools"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"net/rpc"
@@ -40,7 +39,7 @@ func TestNew(t *testing.T) {
 	var authTwoRequest types.AuthRequest
 	{
 		// 1
-		authRequest, _ := client.BasicAuthRequest(opts.OptsConnection)
+		authRequest, _ := tools.BasicAuthRequest(opts.OptsConnection)
 		var authReply *types.AuthResponse
 		err = c.Call(types.EndpointAuth.String()+"."+types.MethodName, authRequest, &authReply)
 		if err != nil {
@@ -52,7 +51,7 @@ func TestNew(t *testing.T) {
 	}
 	{
 		// 2
-		authTwoRequest, _ = client.BasicAuthRequest(opts.OptsConnection)
+		authTwoRequest, _ = tools.BasicAuthRequest(opts.OptsConnection)
 		authTwoRequest.SessionTicket.Id = sessionId
 		authTwoRequest.SessionTicket.Nonce = rand.Int()
 		authTwoRequest.SessionTicket.Signature = tools.HmacInt(sessionSecret, authTwoRequest.SessionTicket.Nonce)
@@ -64,13 +63,33 @@ func TestNew(t *testing.T) {
 		//log.Printf("%+v", authReply)
 	}
 
+	// create
+	var seriesId uint64
+	{
+		params := &types.SeriesMetadataRequest{
+			SeriesCreateMetadata: types.SeriesCreateMetadata{
+				SeriesMetadata: types.SeriesMetadata{
+					Name: "test",
+				},
+				SeriesCreateIdentifier: 1234,
+			},
+			SessionTicket: authTwoRequest.SessionTicket,
+		}
+		var reply *types.SeriesMetadataResponse
+		err = c.Call(types.EndpointSeriesMetadata.String()+"."+types.MethodName, params, &reply)
+		if err != nil {
+			t.Error("error:", err)
+		}
+		seriesId = reply.Id
+	}
+
 	// write
 	params := &types.WriteRequest{
 		Series: []types.WriteSeriesRequest{{
 			Times:  []uint64{1, 2},
 			Values: []float64{5.0, 6.0},
 			SeriesIdentifier: types.SeriesIdentifier{
-				Id: 1,
+				Id: seriesId,
 			},
 		}},
 		SessionTicket: authTwoRequest.SessionTicket,

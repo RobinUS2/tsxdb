@@ -4,6 +4,7 @@ type SeriesMetadata struct {
 	Namespace int
 	Name      string
 	Tags      []string
+	Ttl       uint // relative time in seconds
 }
 
 type SeriesCreateMetadata struct {
@@ -12,6 +13,7 @@ type SeriesCreateMetadata struct {
 }
 
 type SeriesMetadataRequest struct {
+	// @todo support multiple series at once, will increase performance of first flushes a lot (e.g. batch size of 1000 will have 1000 round trips over TCP, have seen easily 30 seconds for that)
 	SeriesCreateMetadata
 	SessionTicket
 }

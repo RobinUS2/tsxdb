@@ -1,11 +1,15 @@
 package backend_test
 
 import (
-	"../backend"
 	"fmt"
 	"github.com/RobinUS2/tsxdb/rpc/types"
+	"github.com/RobinUS2/tsxdb/server/backend"
+	"github.com/go-redis/redis/v7"
+	"log"
 	"math"
 	"math/rand"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -16,12 +20,14 @@ func TestNewRedisBackendSingleConnection(t *testing.T) {
 	opts := &backend.RedisOpts{
 		ConnectionDetails: map[backend.Namespace]backend.RedisConnectionDetails{
 			backend.RedisDefaultConnectionNamespace: {
-				Addr: "localhost",
+				Addr: "127.0.0.1",
 				Port: 6379,
+				Type: backend.RedisMemory,
 			},
 		},
 	}
 	b := backend.NewRedisBackend(opts)
+	b.SetReverseApi(b) // we implement this
 	if b == nil {
 		t.Error()
 	}
@@ -30,20 +36,138 @@ func TestNewRedisBackendSingleConnection(t *testing.T) {
 	}
 }
 
-func TestNewRedisBackendMultiConnection(t *testing.T) {
+func TestWriteZeroValues(t *testing.T) {
 	opts := &backend.RedisOpts{
 		ConnectionDetails: map[backend.Namespace]backend.RedisConnectionDetails{
 			backend.RedisDefaultConnectionNamespace: {
-				Addr: "localhost",
-				Port: 6379,
+				Type: backend.RedisMemory,
 			},
 			backend.Namespace(5): {
-				Addr: "localhost",
-				Port: 6379,
+				Database: 5,
+				Type:     backend.RedisMemory,
 			},
 		},
 	}
 	b := backend.NewRedisBackend(opts)
+	b.SetReverseApi(b) // we implement this
+	if b == nil {
+		t.Error()
+	}
+	if err := b.Init(); err != nil {
+		t.Error(err)
+	}
+
+	// create
+	var idFirst uint64
+	name := fmt.Sprintf("series-redis-%d", time.Now().UnixNano())
+	{
+		createIdentifier := types.SeriesCreateIdentifier(1234)
+		res := b.CreateOrUpdateSeries(&backend.CreateSeries{
+			Series: map[types.SeriesCreateIdentifier]types.SeriesCreateMetadata{
+				createIdentifier: {
+					SeriesMetadata: types.SeriesMetadata{
+						Namespace: 1,
+						Name:      name,
+						Tags:      []string{"a", "b"},
+					},
+					SeriesCreateIdentifier: createIdentifier,
+				},
+			},
+		})
+		if res == nil {
+			t.Error()
+		}
+		if res.Error != nil {
+			t.Error(res.Error)
+		}
+		result := res.Results[createIdentifier]
+		if result.Id < 1 {
+			t.Error("missing id")
+		}
+		idFirst = result.Id
+		if !result.New {
+			t.Error("should be new")
+		}
+	}
+
+	// simple write
+	now := uint64(time.Now().Unix() * 1000)
+	writeVal := rand.Float64()
+	{
+		reqId := backend.NewRequestId()
+		if err := b.Write(backend.ContextWrite{
+			Context: backend.Context{
+				Namespace: 1,
+				Series:    idFirst,
+				RequestId: reqId,
+			},
+		}, []uint64{now}, []float64{writeVal}); err != nil {
+			t.Error(err)
+		}
+		if err := b.FlushPendingWrites(reqId); err != nil {
+			t.Error(err)
+		}
+	}
+	// write 0
+	{
+		now := uint64(time.Now().Unix()*1000) + 1000
+		writeVal := 0.0
+		{
+			reqId := backend.NewRequestId()
+			if err := b.Write(backend.ContextWrite{
+				Context: backend.Context{
+					Namespace: 1,
+					Series:    idFirst,
+					RequestId: reqId,
+				},
+			}, []uint64{now}, []float64{writeVal}); err != nil {
+				t.Error(err)
+			}
+			if err := b.FlushPendingWrites(reqId); err != nil {
+				t.Error(err)
+			}
+		}
+	}
+
+	// simple read
+	{
+		res := b.Read(backend.ContextRead{
+			Context: backend.Context{
+				Series:    idFirst,
+				Namespace: 1,
+			},
+			From: now,        // checking strict boundaries
+			To:   now + 1000, // checking strict boundaries
+		})
+		if res.Error != nil {
+			t.Error(res.Error)
+		}
+		log.Printf("%+v", res.Results)
+		if len(res.Results) != 2 {
+			t.Error("should have 2 results")
+			t.FailNow()
+		}
+		if res.Results[1] != 0.0 {
+			t.Errorf("last value should be 0.0 found %f", res.Results[1])
+			t.FailNow()
+		}
+	}
+}
+
+func TestNewRedisBackendMultiConnection(t *testing.T) {
+	opts := &backend.RedisOpts{
+		ConnectionDetails: map[backend.Namespace]backend.RedisConnectionDetails{
+			backend.RedisDefaultConnectionNamespace: {
+				Type: backend.RedisMemory,
+			},
+			backend.Namespace(5): {
+				Database: 5,
+				Type:     backend.RedisMemory,
+			},
+		},
+	}
+	b := backend.NewRedisBackend(opts)
+	b.SetReverseApi(b) // we implement this
 	if b == nil {
 		t.Error()
 	}
@@ -115,17 +239,42 @@ func TestNewRedisBackendMultiConnection(t *testing.T) {
 	}
 
 	// simple write
-	const seriesId = 1
 	now := uint64(time.Now().Unix() * 1000)
 	writeVal := rand.Float64()
 	{
+		reqId := backend.NewRequestId()
 		if err := b.Write(backend.ContextWrite{
 			Context: backend.Context{
-				Namespace: 5,
-				Series:    seriesId,
+				Namespace: 1,
+				Series:    idFirst,
+				RequestId: reqId,
 			},
 		}, []uint64{now}, []float64{writeVal}); err != nil {
 			t.Error(err)
+		}
+		if err := b.FlushPendingWrites(reqId); err != nil {
+			t.Error(err)
+		}
+	}
+
+	// simple write again
+	{
+		now := uint64(time.Now().Unix()*1000) + 1000
+		writeVal := rand.Float64()
+		{
+			reqId := backend.NewRequestId()
+			if err := b.Write(backend.ContextWrite{
+				Context: backend.Context{
+					Namespace: 1,
+					Series:    idFirst,
+					RequestId: reqId,
+				},
+			}, []uint64{now}, []float64{writeVal}); err != nil {
+				t.Error(err)
+			}
+			if err := b.FlushPendingWrites(reqId); err != nil {
+				t.Error(err)
+			}
 		}
 	}
 
@@ -133,8 +282,8 @@ func TestNewRedisBackendMultiConnection(t *testing.T) {
 	{
 		res := b.Read(backend.ContextRead{
 			Context: backend.Context{
-				Series:    seriesId,
-				Namespace: 5,
+				Series:    idFirst,
+				Namespace: 1,
 			},
 			From: now - (86400 * 1000 * 2),
 			To:   now + (86400 * 1000 * 1),
@@ -264,9 +413,185 @@ func TestNewRedisBackendMultiConnection(t *testing.T) {
 			t.Error("should be nil")
 		}
 	}
+
+	// TTL expiry on entire series
+	{
+		name := fmt.Sprintf("expiry-series-redis-%d", time.Now().UnixNano())
+		req := &backend.CreateSeries{
+			Series: map[types.SeriesCreateIdentifier]types.SeriesCreateMetadata{
+				1: {
+					SeriesMetadata: types.SeriesMetadata{
+						Name:      name,
+						Namespace: 1,
+						Ttl:       1, // 1 second
+					},
+					SeriesCreateIdentifier: 1,
+				},
+			},
+		}
+
+		// first create
+		var firstResult types.SeriesMetadataResponse
+		{
+			resp := b.CreateOrUpdateSeries(req)
+			if resp == nil {
+				t.Error()
+			}
+			firstResult = resp.Results[1]
+			if firstResult.Id == 0 {
+				t.Error(resp.Results)
+			}
+			if !firstResult.New {
+				t.Error("should be new")
+			}
+		}
+
+		// write
+		now := uint64(time.Now().Unix() * 1000)
+		writeVal := rand.Float64()
+		{
+			reqId := backend.NewRequestId()
+			if err := b.Write(backend.ContextWrite{
+				Context: backend.Context{
+					Namespace: 1,
+					Series:    firstResult.Id,
+					RequestId: reqId,
+				},
+			}, []uint64{now}, []float64{writeVal}); err != nil {
+				t.Error(err)
+			}
+			if err := b.FlushPendingWrites(reqId); err != nil {
+				t.Error(err)
+			}
+		}
+
+		// a few more values
+		for i := 0; i < 100; i++ {
+			now := uint64(i) + 1 + uint64(time.Now().Unix()*1000)
+			writeVal := rand.Float64()
+			{
+				reqId := backend.NewRequestId()
+				if err := b.Write(backend.ContextWrite{
+					Context: backend.Context{
+						Namespace: 1,
+						Series:    firstResult.Id,
+						RequestId: reqId,
+					},
+				}, []uint64{now}, []float64{writeVal}); err != nil {
+					t.Error(err)
+				}
+				if err := b.FlushPendingWrites(reqId); err != nil {
+					t.Error(err)
+				}
+			}
+		}
+
+		// @todo inspect TTL meta
+
+		// read
+		{
+			res := b.Read(backend.ContextRead{
+				Context: backend.Context{
+					Series:    firstResult.Id,
+					Namespace: 1,
+				},
+				From: now - 1,
+				To:   now + 1,
+			})
+			if res.Error != nil {
+				t.Error(res.Error)
+			}
+			if len(res.Results) != 2 {
+				t.Errorf("expect 2 result %+v, %d", res.Results, now)
+			}
+			var ts uint64
+			var val float64
+			for ts, val = range res.Results {
+				if ts == now {
+					break
+				}
+			}
+			if now != ts {
+				t.Error("timestamp mismatch", now, ts)
+			}
+			CompareFloat(writeVal, val, floatTolerance, func() {
+				t.Error("value mismatch", writeVal, val)
+			})
+		}
+
+		// wait for expiry
+		time.Sleep(2100 * time.Millisecond)
+
+		// read, should be gone
+		{
+			res := b.Read(backend.ContextRead{
+				Context: backend.Context{
+					Series:    firstResult.Id,
+					Namespace: 1,
+				},
+				From: now - 1,
+				To:   now + 1,
+			})
+			if res.Error == nil || !strings.Contains(res.Error.Error(), types.RpcErrorNoDataFound.String()) {
+				t.Error(res.Error)
+			}
+		}
+
+		// check really removed
+		{
+			conn := b.GetConnection(1)
+			if conn == nil {
+				t.Error(conn)
+			}
+			res := conn.Get(fmt.Sprintf("series_%d_%d_meta", 1, firstResult.Id))
+			if res.Err() != redis.Nil || res.Val() != "" {
+				t.Error(res.Err(), res.Val())
+			}
+		}
+		// check data removed
+		{
+			conn := b.GetConnection(1)
+			if conn == nil {
+				t.Error(conn)
+			}
+			res := conn.Keys("data_1-2-*")
+			for _, key := range res.Val() {
+				zrangeRes := conn.ZRange(key, 0, -1)
+				if len(zrangeRes.Val()) > 0 {
+					ttlRes := conn.PTTL(key)
+					t.Errorf("key %s still exists, ttl: %d, data: %v", key, ttlRes.Val().Microseconds(), zrangeRes.Val())
+				}
+			}
+		}
+
+	}
+	// end TTL test
 }
 func CompareFloat(a float64, b float64, tolerance float64, err func()) {
 	if math.Abs(a-b) > tolerance {
 		err()
+	}
+}
+
+func TestFloatToString(t *testing.T) {
+	tests := map[string]float64{
+		".1":            0.1,
+		".123456":       0.123456,
+		".123457":       0.123456789,      // truncated to 6 digits and rounded
+		"123456.123457": 123456.123456789, // truncated to 6 digits and rounded
+		"123456.1":      123456.1,
+	}
+	for expected, float := range tests {
+		res := backend.FloatToString(float)
+		if res != expected {
+			t.Errorf("expected '%s' was '%s'", expected, res)
+		}
+		parsedFloat, err := strconv.ParseFloat(res, 64)
+		if err != nil {
+			t.Error(err)
+		}
+		CompareFloat(parsedFloat, float, floatTolerance, func() {
+			t.Error("value mismatch", parsedFloat, float)
+		})
 	}
 }

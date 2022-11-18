@@ -1,8 +1,11 @@
 package server
 
 import (
-	"./backend"
+	"fmt"
 	"github.com/RobinUS2/tsxdb/rpc/types"
+	"github.com/RobinUS2/tsxdb/server/backend"
+	"sync"
+	"sync/atomic"
 )
 
 func init() {
@@ -11,7 +14,15 @@ func init() {
 }
 
 type WriterEndpoint struct {
-	server *Instance
+	server    *Instance
+	serverMux sync.RWMutex
+}
+
+func (endpoint *WriterEndpoint) getServer() *Instance {
+	endpoint.serverMux.RLock()
+	s := endpoint.server
+	endpoint.serverMux.RUnlock()
+	return s
 }
 
 func NewWriterEndpoint() *WriterEndpoint {
@@ -19,15 +30,31 @@ func NewWriterEndpoint() *WriterEndpoint {
 }
 
 func (endpoint *WriterEndpoint) Execute(args *types.WriteRequest, resp *types.WriteResponse) error {
+	// deal with panics, else the whole RPC server could crash
+	defer func() {
+		if r := recover(); r != nil {
+			resp.Error = types.WrapErrorPointer(fmt.Errorf("%s", r))
+		}
+	}()
+
+	server := endpoint.getServer()
+
 	// auth
-	if err := endpoint.server.validateSession(args.SessionTicket); err != nil {
+	if err := server.validateSession(args.SessionTicket); err != nil {
 		resp.Error = &types.RpcErrorAuthFailed
 		return nil
 	}
 
-	var numTimes int
+	// request ID to track this specific request
+	requestId := backend.NewRequestId()
+
+	// track backend instances for final flushes
+	backendInstances := make(map[backend.IAbstractBackend]bool)
+
+	var numTimesTotal int
 	for _, batchItem := range args.Series {
-		numTimes += len(batchItem.Times)
+		numTimes := len(batchItem.Times)
+		numTimesTotal += numTimes
 		numValues := len(batchItem.Values)
 
 		// basic validation
@@ -48,14 +75,16 @@ func (endpoint *WriterEndpoint) Execute(args *types.WriteRequest, resp *types.Wr
 		c := backend.ContextBackend{}
 		c.Series = batchItem.Id
 		c.Namespace = batchItem.Namespace
-		backendInstance, err := endpoint.server.SelectBackend(c)
+		c.RequestId = requestId
+		backendInstance, err := server.SelectBackend(c)
 		if err != nil {
 			resp.Error = &types.RpcErrorBackendStrategyNotFound
 			return nil
 		}
+		backendInstances[backendInstance] = true
 
 		// write
-		writeContext := backend.ContextWrite{Context: c.Context}
+		writeContext := backend.ContextWrite(c)
 		err = backendInstance.Write(writeContext, batchItem.Times, batchItem.Values)
 		if err != nil {
 			e := types.RpcError(err.Error())
@@ -63,7 +92,20 @@ func (endpoint *WriterEndpoint) Execute(args *types.WriteRequest, resp *types.Wr
 			return nil
 		}
 	}
-	resp.Num = numTimes
+
+	// flush backends
+	for backendInstance := range backendInstances {
+		if err := backendInstance.FlushPendingWrites(requestId); err != nil {
+			e := types.RpcError(err.Error())
+			resp.Error = &e
+			return nil
+		}
+	}
+
+	resp.Num = numTimesTotal
+
+	// basic stats
+	atomic.AddUint64(&server.numValuesWritten, uint64(resp.Num))
 
 	return nil
 }
@@ -72,7 +114,9 @@ func (endpoint *WriterEndpoint) register(opts *EndpointOpts) error {
 	if err := opts.server.rpc.RegisterName(endpoint.name().String(), endpoint); err != nil {
 		return err
 	}
+	endpoint.serverMux.Lock()
 	endpoint.server = opts.server
+	endpoint.serverMux.Unlock()
 	return nil
 }
 

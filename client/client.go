@@ -1,16 +1,28 @@
 package client
 
-import "sync"
-
 type Instance struct {
 	opts           *Opts
-	connectionPool *sync.Pool
+	numConnections int64
+	connectionPool *ConnectionPool
 	closing        bool
+	seriesPool     *SeriesPool
+
+	*EagerInitSeriesHelper
+}
+
+type EagerInitSeriesHelper struct {
+	preEagerInitFn func(series *Series)
+}
+
+func (helper *EagerInitSeriesHelper) SetPreEagerInitFn(f func(series *Series)) {
+	helper.preEagerInitFn = f
 }
 
 func New(opts *Opts) *Instance {
 	i := &Instance{
-		opts: opts,
+		opts:                  opts,
+		seriesPool:            NewSeriesPool(opts),
+		EagerInitSeriesHelper: &EagerInitSeriesHelper{},
 	}
 	if err := i.initConnectionPool(); err != nil {
 		panic(err)

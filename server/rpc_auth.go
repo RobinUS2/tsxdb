@@ -6,9 +6,12 @@ import (
 	"crypto/sha512"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"github.com/RobinUS2/tsxdb/rpc/types"
 	"github.com/RobinUS2/tsxdb/tools"
 	insecureRand "math/rand"
+	"sync"
+	"sync/atomic"
 )
 
 func init() {
@@ -17,7 +20,15 @@ func init() {
 }
 
 type AuthEndpoint struct {
-	server *Instance
+	server    *Instance
+	serverMux sync.RWMutex
+}
+
+func (endpoint *AuthEndpoint) getServer() *Instance {
+	endpoint.serverMux.RLock()
+	s := endpoint.server
+	endpoint.serverMux.RUnlock()
+	return s
 }
 
 func NewAuthEndpoint() *AuthEndpoint {
@@ -25,11 +36,19 @@ func NewAuthEndpoint() *AuthEndpoint {
 }
 
 func (endpoint *AuthEndpoint) Execute(args *types.AuthRequest, resp *types.AuthResponse) error {
+	// deal with panics, else the whole RPC server could crash
+	defer func() {
+		if r := recover(); r != nil {
+			resp.Error = types.WrapErrorPointer(fmt.Errorf("%s", r))
+		}
+	}()
+
 	nonce, _ := base64.StdEncoding.DecodeString(args.Nonce)
 	signature, _ := base64.StdEncoding.DecodeString(args.Signature)
 
 	// signature
-	mac := hmac.New(sha512.New, []byte(endpoint.server.opts.AuthToken))
+	server := endpoint.getServer()
+	mac := hmac.New(sha512.New, []byte(server.opts.AuthToken))
 	mac.Write(nonce)
 	expected := mac.Sum(nil)
 	if !hmac.Equal(signature, expected) || nonce == nil || len(nonce) < 32 || signature == nil || len(signature) < 1 {
@@ -57,16 +76,16 @@ func (endpoint *AuthEndpoint) Execute(args *types.AuthRequest, resp *types.AuthR
 		resp.SessionSecret = base64.StdEncoding.EncodeToString(token)
 
 		// store in server
-		// @todo token expiry
-		endpoint.server.sessionTokensMux.Lock()
-		endpoint.server.sessionTokens[resp.SessionId] = token
-		endpoint.server.sessionTokensMux.Unlock()
+		server.registerSessionToken(SessionId(resp.SessionId), token)
 	} else {
 		// stage 2
-		if err := endpoint.server.validateSession(args.SessionTicket); err != nil {
+		if err := server.validateSession(args.SessionTicket); err != nil {
 			resp.Error = types.WrapErrorPointer(err)
 			return nil
 		}
+
+		// auth stats
+		atomic.AddUint64(&server.numAuthentications, 1)
 	}
 
 	resp.Error = nil
@@ -77,7 +96,9 @@ func (endpoint *AuthEndpoint) register(opts *EndpointOpts) error {
 	if err := opts.server.rpc.RegisterName(endpoint.name().String(), endpoint); err != nil {
 		return err
 	}
+	endpoint.serverMux.Lock()
 	endpoint.server = opts.server
+	endpoint.serverMux.Unlock()
 	return nil
 }
 
@@ -92,9 +113,7 @@ func (instance *Instance) validateSession(ticket types.SessionTicket) error {
 	if ticket.Nonce == 0 {
 		return errors.New("missing session nonce")
 	}
-	instance.sessionTokensMux.RLock()
-	token := instance.sessionTokens[ticket.Id]
-	instance.sessionTokensMux.RUnlock()
+	token := instance.getTokenFromSessionId(SessionId(ticket.Id))
 	if len(token) != 32 {
 		return errors.New("session continuation token not found")
 	}
@@ -105,5 +124,9 @@ func (instance *Instance) validateSession(ticket types.SessionTicket) error {
 	if expectedSessionSignature != ticket.Signature {
 		return types.RpcErrorAuthFailed.Error()
 	}
+
+	// track statistics of calls
+	atomic.AddUint64(&instance.numCalls, 1)
+
 	return nil
 }

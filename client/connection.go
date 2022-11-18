@@ -1,39 +1,38 @@
 package client
 
 import (
-	"crypto/rand"
 	"encoding/base64"
-	"errors"
 	"fmt"
-	rpc2 "github.com/RobinUS2/tsxdb/rpc"
+	tsxdbRpc "github.com/RobinUS2/tsxdb/rpc"
 	"github.com/RobinUS2/tsxdb/rpc/types"
 	"github.com/RobinUS2/tsxdb/tools"
+	"github.com/pkg/errors"
+	"log"
 	insecureRand "math/rand"
+	"net"
 	"net/rpc"
+	"runtime/debug"
 	"strings"
-	"sync"
+	"sync/atomic"
 	"time"
 )
 
+// @todo explore something like https://github.com/grpc/grpc OR https://github.com/valyala/gorpc as replacement of regular net/rpc (right now a lot of overhead in network bytes)
+
 func (client *Instance) initConnectionPool() error {
-	client.connectionPool = &sync.Pool{
-		New: func() interface{} {
-			if client.closing {
-				return nil
-			}
-			c, err := client.NewConnection()
-			//log.Println("new con")
-			if err != nil {
-				// @todo what to do?
-				panic(err)
-			}
-			return c
-		},
-	}
+	client.connectionPool = client.NewConnectionPool()
 	return nil
 }
 
-func (client *Instance) GetConnection() (*ManagedConnection, error) {
+func (client *Instance) GetConnection() (managedConnection *ManagedConnection, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			managedConnection = nil
+			err = errors.New(fmt.Sprintf("%s", r))
+		}
+	}()
+
+	// get connection, this may panic
 	conn := client.connectionPool.Get()
 	if conn == nil {
 		if client.closing {
@@ -41,41 +40,116 @@ func (client *Instance) GetConnection() (*ManagedConnection, error) {
 		}
 		return nil, errors.New("failed to obtain connection")
 	}
-	managedConnection := conn.(*ManagedConnection)
+
+	// correct type
+	managedConnection = conn.(*ManagedConnection)
+
+	// auth
 	if !managedConnection.authenticated {
-		if err := managedConnection.auth(client); err != nil {
+		// auth with retries
+		err = handleRetry(func() error {
+			err := managedConnection.auth(client)
+			if err != nil {
+				// new connection
+				managedConnection.Discard()
+				client.connectionPool.Put(managedConnection)
+				managedConnection = client.connectionPool.Get().(*ManagedConnection)
+				return err
+			}
+			return nil
+		})
+		if err != nil {
+			// fatal auth error
 			return nil, err
 		}
 	}
+
+	// track timing
+	now := nowMs()
+	atomic.StoreUint64(&managedConnection.poolGet, now)
+
+	// track potential leakage (e.g not calling *ManagedConnection.Close )
+	if client.opts.OptsConnection.Debug {
+		const returnTimeout = tsxdbRpc.DefaultTimeout
+		time.AfterFunc(returnTimeout, func() {
+			returned := atomic.LoadUint64(&managedConnection.poolReturn)
+			if returned < now {
+				panic(fmt.Sprintf("not returned connection after %s", returnTimeout))
+			}
+		})
+	}
+
 	return managedConnection, nil
 }
 
-func (client *Instance) NewConnection() (*ManagedConnection, error) {
-	conn, err := rpc.Dial("tcp", client.opts.ListenHost+fmt.Sprintf(":%d", client.opts.ListenPort))
+func (client *Instance) NewClient() (*ManagedConnection, error) {
+	// open connection
+	address := client.opts.ListenHost + fmt.Sprintf(":%d", client.opts.ListenPort)
+	conn, err := net.DialTimeout("tcp", address, client.opts.OptsConnection.ConnectTimeout)
 	if err != nil {
 		return nil, err
 	}
+
+	// codec
+	codec := tsxdbRpc.NewGobClientCodec(conn)
+
+	// client
+	rpcClient := rpc.NewClientWithCodec(codec)
+
 	return &ManagedConnection{
-		client:  conn,
-		pool:    client.connectionPool,
+		service: client,
+		client:  rpcClient,
 		created: time.Now().Unix(),
 	}, nil
 }
 
 type ManagedConnection struct {
+	service       *Instance
 	client        *rpc.Client
-	pool          *sync.Pool
 	created       int64
 	authenticated bool
 	sessionId     int
 	sessionSecret []byte
+	poolGet       uint64
+	poolReturn    uint64
+	discard       bool // if set to true won't be returned back to the pool
+	timesUsed     uint64
+}
+
+func (conn *ManagedConnection) DiscardPool() {
+	err := conn.Close()
+	if err != nil {
+		log.Printf("failed to close connection %s", err)
+	}
+}
+
+// call this to make sure connection is not reused
+func (conn *ManagedConnection) Discard() {
+	if conn == nil {
+		return
+	}
+	conn.discard = true
 }
 
 func (conn *ManagedConnection) Close() error {
-	// keep alive?
-	if time.Now().Unix()-conn.created >= 60 {
+	// track slow usage
+	now := nowMs()
+	atomic.StoreUint64(&conn.poolReturn, now)
+	get := atomic.LoadUint64(&conn.poolGet)
+	took := nowMs() - get
+	if took > 10*1000 {
+		log.Printf("SLOW connection usage, taken at %d returned at %d took %d ms", get, now, took)
+		debug.PrintStack()
+	}
+
+	// track max usage per connection
+	const maxUsages = 1000
+	numUsed := atomic.LoadUint64(&conn.timesUsed)
+
+	// keep alive? only if within expire time and not discard
+	if !conn.discard && time.Now().Unix()-conn.created < 60 && numUsed < maxUsages {
 		// re-use
-		conn.pool.Put(conn)
+		conn.service.connectionPool.Put(conn)
 		return nil
 	}
 
@@ -86,33 +160,18 @@ func (conn *ManagedConnection) Close() error {
 	return nil
 }
 
-func BasicAuthRequest(opts rpc2.OptsConnection) (request types.AuthRequest, err error) {
-	// random data
-	var nonce = make([]byte, 32)
-	_, err = rand.Read(nonce)
-	if err != nil {
-		// missing entropy, risky
-		return
-	}
-
-	// signature
-	signature, _ := tools.Hmac([]byte(opts.AuthToken), nonce)
-
-	// request (single)
-	request = types.AuthRequest{
-		Nonce:     base64.StdEncoding.EncodeToString(nonce),
-		Signature: base64.StdEncoding.EncodeToString(signature),
-	}
-	return
-}
-
 func (conn *ManagedConnection) executeAuthRequest(request types.AuthRequest) (response *types.AuthResponse, err error) {
 	success := false
 	defer func() {
 		// close the real underlying RPC connection
 		if !success {
 			_ = conn.client.Close()
-			err = errors.New("no success")
+			errNoSuccess := errors.New("no success")
+			if err == nil {
+				err = errNoSuccess
+			} else {
+				err = errors.Wrap(err, errNoSuccess.Error())
+			}
 		}
 	}()
 
@@ -137,7 +196,7 @@ func (conn *ManagedConnection) auth(client *Instance) error {
 	var sessionSecret []byte
 	{
 		// phase 1 initial payload
-		request, err := BasicAuthRequest(client.opts.OptsConnection)
+		request, err := tools.BasicAuthRequest(client.opts.OptsConnection)
 		if err != nil {
 			return err
 		}
@@ -145,7 +204,7 @@ func (conn *ManagedConnection) auth(client *Instance) error {
 		// execute phase 1
 		resp, err := conn.executeAuthRequest(request)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "failed auth call #1")
 		}
 
 		// validate and parse session data
@@ -165,7 +224,7 @@ func (conn *ManagedConnection) auth(client *Instance) error {
 
 	// second stage
 	{
-		request, err := BasicAuthRequest(client.opts.OptsConnection)
+		request, err := tools.BasicAuthRequest(client.opts.OptsConnection)
 		if err != nil {
 			return err
 		}
@@ -176,7 +235,7 @@ func (conn *ManagedConnection) auth(client *Instance) error {
 		request.SessionTicket.Signature = tools.HmacInt(sessionSecret, request.SessionTicket.Nonce)
 
 		if _, err := conn.executeAuthRequest(request); err != nil {
-			return err
+			return errors.Wrap(err, "failed auth call #2")
 		}
 		// store for next requests
 		conn.sessionId = sessionId

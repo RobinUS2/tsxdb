@@ -5,28 +5,33 @@ import (
 	"github.com/pkg/errors"
 )
 
-func (series *Series) NoOp() error {
-	// request (single)
-	request := types.NoOpRequest{}
-
+func (series *Series) NoOp() (err error) {
 	// get
 	conn, err := series.client.GetConnection()
 	if err != nil {
-		return err
+		err = errors.Wrap(err, "failed get connection")
+		return
 	}
-	defer panicOnErrorClose(conn.Close)
+	defer func() {
+		if err != nil && conn != nil {
+			conn.Discard()
+		}
+		panicOnErrorClose(conn.Close)
+	}()
 
 	// session data
-	request.SessionTicket = conn.getSessionTicket()
+	return handleRetry(func() error {
+		request := types.NoOpRequest{}
+		request.SessionTicket = conn.getSessionTicket()
 
-	// execute
-	var response *types.NoOpResponse
-	if err := conn.client.Call(types.EndpointNoOp.String()+"."+types.MethodName, request, &response); err != nil {
-		return err
-	}
-	if response.Error != nil {
-		return errors.New(response.Error.Error().Error())
-	}
-
-	return nil
+		// execute
+		var response *types.NoOpResponse
+		if err := conn.client.Call(types.EndpointNoOp.String()+"."+types.MethodName, request, &response); err != nil {
+			return err
+		}
+		if response.Error != nil {
+			return errors.New(response.Error.Error().Error())
+		}
+		return nil
+	})
 }
