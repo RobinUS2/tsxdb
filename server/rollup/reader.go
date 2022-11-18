@@ -1,7 +1,7 @@
 package rollup
 
 import (
-	"github.com/Route42/tsxdb/server/backend"
+	"../backend"
 )
 
 type Reader struct {

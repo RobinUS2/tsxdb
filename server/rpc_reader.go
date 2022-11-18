@@ -1,8 +1,8 @@
 package server
 
 import (
+	"./backend"
 	"github.com/Route42/tsxdb/rpc/types"
-	"github.com/Route42/tsxdb/server/backend"
 )
 
 func init() {
