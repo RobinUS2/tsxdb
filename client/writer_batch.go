@@ -1,6 +1,7 @@
 package client
 
 import (
+	"fmt"
 	"github.com/RobinUS2/tsxdb/rpc/types"
 	"github.com/pkg/errors"
 	"log"
@@ -25,7 +26,10 @@ func (batch *BatchWriter) ToWriteRequest(conn *ManagedConnection) (request types
 	for _, item := range batch.items {
 		var seriesId uint64
 		if seriesId, err = item.series.Init(conn); err != nil {
-			return
+			return request, fmt.Errorf("error during series init (1) %s: %s", item.series.name, err)
+		}
+		if seriesId == 0 {
+			return request, fmt.Errorf("error during series init (2) %s", item.series.name)
 		}
 		if seriesTimestamps[seriesId] == nil {
 			seriesTimestamps[seriesId] = make([]uint64, 0)
