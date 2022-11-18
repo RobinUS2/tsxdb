@@ -4,6 +4,7 @@ import (
 	"github.com/RobinUS2/tsxdb/rpc/types"
 	"github.com/RobinUS2/tsxdb/tools"
 	"github.com/pkg/errors"
+	"log"
 	"sync/atomic"
 )
 
@@ -94,6 +95,10 @@ func (series *Series) Init(conn *ManagedConnection) (id uint64, err error) {
 
 	if err != nil {
 		return 0, err
+	}
+
+	if response.Id == 0 {
+		log.Printf("logging response from series init: %+v", response)
 	}
 
 	// store id
