@@ -422,6 +422,8 @@ func (instance *RedisBackend) CreateOrUpdateSeries(create *CreateSeries) (result
 			result.Results = make(map[types.SeriesCreateIdentifier]types.SeriesMetadataResponse)
 		}
 		result.Results[identifier] = subRes
+
+		log.Printf("creating/updating series: %+v result: %+v", series, subRes)
 	}
 	return
 }
