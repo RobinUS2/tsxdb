@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/RobinUS2/tsxdb/rpc/types"
 	"github.com/RobinUS2/tsxdb/server/backend"
+	"log"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -31,6 +32,8 @@ func NewSeriesMetadataEndpoint() *SeriesMetadataEndpoint {
 }
 
 func (endpoint *SeriesMetadataEndpoint) Execute(args *types.SeriesMetadataRequest, resp *types.SeriesMetadataResponse) error {
+	log.Printf("executing SeriesMetadataRequest: %+v", args)
+
 	// deal with panics, else the whole RPC server could crash
 	defer func() {
 		if r := recover(); r != nil {
@@ -62,6 +65,7 @@ func (endpoint *SeriesMetadataEndpoint) Execute(args *types.SeriesMetadataReques
 			args.SeriesCreateIdentifier: args.SeriesCreateMetadata,
 		},
 	})
+	log.Printf("executing SeriesMetadataRequest result: %+v", result)
 	thisResult := result.Results[args.SeriesCreateIdentifier] // only support one for now
 	// for some reason assigning thisResult to resp is not working, probably since the reference is part of the RPC pipe
 	resp.New = thisResult.New
