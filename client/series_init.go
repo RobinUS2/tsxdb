@@ -83,6 +83,10 @@ func (series *Series) Init(conn *ManagedConnection) (id uint64, err error) {
 		if err = conn.client.Call(types.EndpointSeriesMetadata.String()+"."+types.MethodName, request, &response); err != nil {
 			return err
 		}
+		if response.Id < 1 {
+			// validate we really have an ID
+			return types.RpcErrorSeriesInitNoId.Error()
+		}
 		if response.Error != nil {
 			if *response.Error == types.RpcErrorSeriesNameEmpty || *response.Error == types.RpcErrorSeriesNameWhitespace {
 				// non-retryable

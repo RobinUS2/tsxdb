@@ -17,6 +17,7 @@ var RpcErrorSeriesNameEmpty RpcError = "series name can not be empty"
 var RpcErrorSeriesNameWhitespace RpcError = "series name can not contain whitespace"
 var RpcErrorNoDataFound RpcError = "no data found"
 var RpcErrorSeriesExpired RpcError = "series expired"
+var RpcErrorSeriesInitNoId RpcError = "series init no id"
 
 func (err RpcError) String() string {
 	return string(err)

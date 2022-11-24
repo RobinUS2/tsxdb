@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
-	"runtime/debug"
 	"time"
 )
 
@@ -32,7 +31,7 @@ func handleRetry(fn func() error) (err error) {
 		err = fn()
 		if err != nil {
 			log.Printf("failed attempt: %s", err)
-			debug.PrintStack()
+			//debug.PrintStack()
 			continue
 		}
 		break
