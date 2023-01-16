@@ -1,10 +1,11 @@
 package backend_test
 
 import (
+	"context"
 	"fmt"
 	"github.com/RobinUS2/tsxdb/rpc/types"
 	"github.com/RobinUS2/tsxdb/server/backend"
-	"github.com/go-redis/redis/v7"
+	"github.com/go-redis/redis/v8"
 	"log"
 	"math"
 	"math/rand"
@@ -540,10 +541,11 @@ func TestNewRedisBackendMultiConnection(t *testing.T) {
 		// check really removed
 		{
 			conn := b.GetConnection(1)
+			ctx := context.Background()
 			if conn == nil {
 				t.Error(conn)
 			}
-			res := conn.Get(fmt.Sprintf("series_%d_%d_meta", 1, firstResult.Id))
+			res := conn.Get(ctx, fmt.Sprintf("series_%d_%d_meta", 1, firstResult.Id))
 			if res.Err() != redis.Nil || res.Val() != "" {
 				t.Error(res.Err(), res.Val())
 			}
@@ -551,14 +553,15 @@ func TestNewRedisBackendMultiConnection(t *testing.T) {
 		// check data removed
 		{
 			conn := b.GetConnection(1)
+			ctx := context.Background()
 			if conn == nil {
 				t.Error(conn)
 			}
-			res := conn.Keys("data_1-2-*")
+			res := conn.Keys(ctx, "data_1-2-*")
 			for _, key := range res.Val() {
-				zrangeRes := conn.ZRange(key, 0, -1)
+				zrangeRes := conn.ZRange(ctx, key, 0, -1)
 				if len(zrangeRes.Val()) > 0 {
-					ttlRes := conn.PTTL(key)
+					ttlRes := conn.PTTL(ctx, key)
 					t.Errorf("key %s still exists, ttl: %d, data: %v", key, ttlRes.Val().Microseconds(), zrangeRes.Val())
 				}
 			}
