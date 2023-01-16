@@ -1,12 +1,13 @@
 package backend
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/RobinUS2/tsxdb/rpc/types"
 	"github.com/alicebob/miniredis/v2"
 	lock "github.com/bsm/redislock"
-	"github.com/go-redis/redis/v7"
+	"github.com/go-redis/redis/v8"
 	"github.com/jinzhu/now"
 	"github.com/karlseguin/ccache/v2"
 	"github.com/patrickmn/go-cache"
@@ -45,6 +46,8 @@ type RedisBackend struct {
 	pipelinesMux sync.RWMutex
 
 	metadataCache *ccache.Cache
+
+	ctx context.Context
 }
 
 func (instance *RedisBackend) Type() TypeBackend {
@@ -94,7 +97,7 @@ func (instance *RedisBackend) FlushPendingWrites(requestId RequestId) error {
 	}()
 
 	// execute buffer
-	if _, err := v.Exec(); err != nil {
+	if _, err := v.Exec(instance.ctx); err != nil {
 		return errors.Wrap(err, "redis flush pending writes failed")
 	}
 
@@ -187,7 +190,7 @@ func (instance *RedisBackend) Write(context ContextWrite, timestamps []uint64, v
 		}
 
 		// execute
-		res := pipeline.ZAdd(key, members...)
+		res := pipeline.ZAdd(instance.ctx, key, members...)
 		if res.Err() != nil {
 			return res.Err()
 		}
@@ -196,7 +199,7 @@ func (instance *RedisBackend) Write(context ContextWrite, timestamps []uint64, v
 			// deduplicate expire at, if we've recently done
 			expireWrittenCacheKey := fmt.Sprintf("%d", context.Series)
 			if _, found := instance.expireWrittenCache.Get(expireWrittenCacheKey); !found {
-				pipeline.ExpireAt(key, expireTime)
+				pipeline.ExpireAt(instance.ctx, key, expireTime)
 				instance.expireWrittenCache.Set(expireWrittenCacheKey, true, expireWrittenCacheDuration)
 			}
 		}
@@ -242,7 +245,7 @@ func (instance *RedisBackend) Read(context ContextRead) (res ReadResult) {
 	keys, _ := instance.getKeysInRange(context)
 	var resultMap map[uint64]float64
 	for _, key := range keys {
-		read := conn.ZRangeByScoreWithScores(key, &redis.ZRangeBy{
+		read := conn.ZRangeByScoreWithScores(instance.ctx, key, &redis.ZRangeBy{
 			Min: FloatToString(float64(context.From - 1)), // pad 1 ms to make sure the scores are available due to float rounding
 			Max: FloatToString(float64(context.To + 1)),
 		})
@@ -299,7 +302,7 @@ func (instance *RedisBackend) createOrUpdateSeries(identifier types.SeriesCreate
 
 	// existing
 	seriesKey := instance.getSeriesByNameKey(Namespace(series.Namespace), series.Name)
-	res := conn.Get(seriesKey)
+	res := conn.Get(instance.ctx, seriesKey)
 	if filterNilErr(res.Err()) != nil {
 		err = res.Err()
 		return
@@ -307,7 +310,7 @@ func (instance *RedisBackend) createOrUpdateSeries(identifier types.SeriesCreate
 	if res.Val() == "" {
 		// not existing
 		lockKey := "lock_" + seriesKey
-		createLock, err := lock.Obtain(conn, lockKey, defaultExpiryTime, nil)
+		createLock, err := lock.Obtain(instance.ctx, conn, lockKey, defaultExpiryTime, nil)
 		if err != nil || createLock == nil {
 			// fail to obtain lock
 			return result, errors.New(fmt.Sprintf("failed to obtain metadata lock %v", err))
@@ -317,27 +320,27 @@ func (instance *RedisBackend) createOrUpdateSeries(identifier types.SeriesCreate
 		// unlock
 		defer func() {
 			// unlock
-			if lockErr := createLock.Release(); err != nil {
+			if lockErr := createLock.Release(instance.ctx); err != nil {
 				err = lockErr
 				return
 			}
 		}()
 
 		// existing (check again in lock)
-		res := conn.Get(seriesKey)
+		res := conn.Get(instance.ctx, seriesKey)
 		if res.Err() == redis.Nil {
 			// not existing, create
 
 			// ID, increment in namespace
 			idKey := fmt.Sprintf("id_%d", series.Namespace)
-			idRes := conn.Incr(idKey)
+			idRes := conn.Incr(instance.ctx, idKey)
 			if filterNilErr(idRes.Err()) != nil {
 				return result, errors.Wrap(idRes.Err(), "increment failed")
 			}
 			newId := uint64(idRes.Val())
 
 			// write to redis
-			writeRes := conn.Set(seriesKey, fmt.Sprintf("%d", newId), 0)
+			writeRes := conn.Set(instance.ctx, seriesKey, fmt.Sprintf("%d", newId), 0)
 			if writeRes.Err() != nil {
 				return result, writeRes.Err()
 			}
@@ -378,7 +381,7 @@ func (instance *RedisBackend) createOrUpdateSeries(identifier types.SeriesCreate
 			if err != nil {
 				panic(err)
 			}
-			if res := conn.Set(metaKey, string(j), 0); res.Err() != nil {
+			if res := conn.Set(instance.ctx, metaKey, string(j), 0); res.Err() != nil {
 				return result, res.Err()
 			}
 			instance.metadataCache.DeletePrefix(metaKey) // wipe metadata cache
@@ -388,7 +391,7 @@ func (instance *RedisBackend) createOrUpdateSeries(identifier types.SeriesCreate
 		if series.Tags != nil {
 			for _, tag := range series.Tags {
 				tagKey := instance.getTagKey(Namespace(series.Namespace), tag)
-				if res := conn.SAdd(tagKey, result.Id); res.Err() != nil {
+				if res := conn.SAdd(instance.ctx, tagKey, result.Id); res.Err() != nil {
 					return result, res.Err()
 				}
 			}
@@ -460,7 +463,7 @@ func (instance *RedisBackend) SearchSeries(search *SearchSeries) (result *Search
 	if search.Name != "" {
 		conn := instance.GetConnection(Namespace(search.Namespace))
 		seriesKey := instance.getSeriesByNameKey(Namespace(search.Namespace), search.Name)
-		res := conn.Get(seriesKey)
+		res := conn.Get(instance.ctx, seriesKey)
 		if filterNilErr(res.Err()) != nil {
 			result.Error = res.Err()
 			return
@@ -502,7 +505,7 @@ func (instance *RedisBackend) getMetadata(namespace Namespace, id uint64, ignore
 func (instance *RedisBackend) getMetadataFromStorage(namespace Namespace, id uint64, ignoreExpiry bool) (result SeriesMetadata, err error) {
 	metaKey := instance.getSeriesMetaKey(namespace, id)
 	conn := instance.GetConnection(namespace)
-	res := conn.Get(metaKey)
+	res := conn.Get(instance.ctx, metaKey)
 	if res.Err() != nil {
 		return result, errors.Wrapf(res.Err(), "series %d", id)
 	}
@@ -554,7 +557,7 @@ func (instance *RedisBackend) DeleteSeries(ops *DeleteSeries) (result *DeleteSer
 		idStr := fmt.Sprintf("%d", meta.Id)
 
 		// key
-		if res := conn.Del(instance.getSeriesByNameKey(Namespace(op.Namespace), meta.Name)); res.Err() != nil {
+		if res := conn.Del(instance.ctx, instance.getSeriesByNameKey(Namespace(op.Namespace), meta.Name)); res.Err() != nil {
 			result.Error = res.Err()
 			return
 		}
@@ -562,7 +565,7 @@ func (instance *RedisBackend) DeleteSeries(ops *DeleteSeries) (result *DeleteSer
 		// tag memberships (based on meta)
 		for _, tag := range meta.Tags {
 			tagKey := instance.getTagKey(Namespace(op.Namespace), tag)
-			res := conn.SRem(tagKey, idStr)
+			res := conn.SRem(instance.ctx, tagKey, idStr)
 			if res.Err() != nil {
 				result.Error = res.Err()
 				return
@@ -570,7 +573,7 @@ func (instance *RedisBackend) DeleteSeries(ops *DeleteSeries) (result *DeleteSer
 		}
 
 		// meta key
-		if res := conn.Del(instance.getSeriesMetaKey(Namespace(op.Namespace), uint64(meta.Id))); res.Err() != nil {
+		if res := conn.Del(instance.ctx, instance.getSeriesMetaKey(Namespace(op.Namespace), uint64(meta.Id))); res.Err() != nil {
 			result.Error = res.Err()
 			return
 		}
@@ -643,7 +646,7 @@ func (instance *RedisBackend) Init() error {
 			panic(fmt.Sprintf("type %s not supported", details.Type))
 		}
 		// ping pong
-		_, err := client.Ping().Result()
+		_, err := client.Ping(instance.ctx).Result()
 		if err != nil {
 			return errors.Wrap(err, fmt.Sprintf("failed to init namespace %d", namespace))
 		}
@@ -679,6 +682,7 @@ func NewRedisBackend(opts *RedisOpts) *RedisBackend {
 		expireWrittenCache: cache.New(60*time.Minute, 1*time.Minute),
 		pipelines:          make(map[RequestId]redis.Pipeliner),
 		metadataCache:      ccache.New(ccache.Configure().MaxSize(1000 * 1000)),
+		ctx:                context.Background(),
 	}
 }
 
