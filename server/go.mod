@@ -30,5 +30,5 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/satori/go.uuid v1.2.1-0.20181028125025-b2ce2384e17b
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/apimachinery v0.0.0-20190515023456-b74e4c97951f
+	k8s.io/apimachinery v0.15.7
 )
