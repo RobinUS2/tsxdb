@@ -13,7 +13,7 @@ type ConnectionPool struct {
 func (client *Instance) NewConnectionPool() *ConnectionPool {
 	genericPool := NewGenericPool(PoolOpts{
 		Size:        10,
-		PreWarmSize: 0,
+		PreWarmSize: 10,
 		New: func() interface{} {
 			if client.closing {
 				return nil
@@ -74,8 +74,8 @@ func (p *GenericPool) Get() interface{} {
 	select {
 	case v := <-p.pool:
 		return v
-	default:
-		return p.New()
+		//default:
+		//	return p.New()
 	}
 }
 
