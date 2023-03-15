@@ -136,7 +136,7 @@ func (conn *ManagedConnection) Close() error {
 	atomic.StoreUint64(&conn.poolReturn, now)
 	get := atomic.LoadUint64(&conn.poolGet)
 	took := nowMs() - get
-	if took > 20*1000 { // @todo configurable
+	if took > 30*1000 { // @todo configurable
 		log.Printf("SLOW connection usage, taken at %d returned at %d took %d ms", get, now, took) // @todo via logger
 	}
 
