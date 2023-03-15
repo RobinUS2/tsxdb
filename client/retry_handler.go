@@ -31,7 +31,6 @@ func handleRetry(fn func() error) (err error) {
 		err = fn()
 		if err != nil {
 			log.Printf("failed attempt: %s", err)
-			//debug.PrintStack()
 			continue
 		}
 		break

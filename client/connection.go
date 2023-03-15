@@ -11,7 +11,6 @@ import (
 	insecureRand "math/rand"
 	"net"
 	"net/rpc"
-	"runtime/debug"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -139,7 +138,6 @@ func (conn *ManagedConnection) Close() error {
 	took := nowMs() - get
 	if took > 10*1000 {
 		log.Printf("SLOW connection usage, taken at %d returned at %d took %d ms", get, now, took)
-		debug.PrintStack()
 	}
 
 	// track max usage per connection
