@@ -21,8 +21,7 @@ func (client *Instance) NewConnectionPool() *ConnectionPool {
 			}
 			c, err := client.NewClient()
 			if err != nil {
-				// is dealt with in (client *Instance) GetConnection() (*ManagedConnection, error)
-				panic(errors.Wrap(err, "failed to init new connection"))
+				log.Printf("init connection err %s", errors.Wrap(err, "failed to init new connection"))
 			}
 			if client.opts.Debug {
 				numCreated := atomic.LoadUint64(&client.connectionPool.numCreated)
