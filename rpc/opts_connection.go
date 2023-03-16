@@ -20,6 +20,6 @@ func NewOptsConnection() OptsConnection {
 		ListenPort:     DefaultListenPort,
 		ListenHost:     DefaultListenHost,
 		ConnectTimeout: DefaultConnectTimeout,
-		Debug:          true, // @todo set to false again
+		Debug:          false,
 	}
 }
