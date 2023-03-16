@@ -53,10 +53,14 @@ func NewGenericPool(opts PoolOpts) GenericPool {
 	if opts.New == nil {
 		panic("missing new")
 	}
+	poolSize := opts.Size
+	if opts.MaxSize > opts.Size {
+		poolSize = opts.MaxSize
+	}
 	p := GenericPool{
 		opts: opts,
 		New:  opts.New,
-		pool: make(chan interface{}, opts.Size),
+		pool: make(chan interface{}, poolSize),
 	}
 	if opts.PreWarmSize > 0 {
 		for i := 0; i < opts.PreWarmSize; i++ {
