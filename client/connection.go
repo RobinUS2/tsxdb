@@ -122,12 +122,13 @@ func (conn *ManagedConnection) DiscardPool() {
 	}
 }
 
-// call this to make sure connection is not reused
+// Discard call this to make sure connection is not reused
 func (conn *ManagedConnection) Discard() {
 	if conn == nil {
 		return
 	}
 	conn.discard = true
+	// this will be discarded in the Close method below
 }
 
 func (conn *ManagedConnection) Close() error {
@@ -152,6 +153,7 @@ func (conn *ManagedConnection) Close() error {
 	}
 
 	// close
+	conn.service.connectionPool.Discard(conn)
 	if err := conn.client.Close(); err != nil {
 		return err
 	}
