@@ -21,7 +21,7 @@ func (client *Instance) NewConnectionPool() *ConnectionPool {
 			}
 			c, err := client.NewClient()
 			if err != nil {
-				log.Printf("init connection err %s", errors.Wrap(err, "failed to init new connection"))
+				log.Printf("init connection err %s", errors.Wrap(err, "failed to init new connection "))
 				return nil
 			}
 			if client.opts.Debug {
