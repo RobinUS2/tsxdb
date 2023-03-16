@@ -24,7 +24,7 @@ func (client *Instance) NewConnectionPool() *ConnectionPool {
 				log.Printf("init connection err %s", errors.Wrap(err, "failed to init new connection "))
 				return nil
 			}
-			if client.opts.Debug {
+			if client.opts.Debug && client.connectionPool != nil {
 				numCreated := atomic.LoadUint64(&client.connectionPool.numCreated)
 				numDiscarded := atomic.LoadUint64(&client.connectionPool.numDiscarded)
 				numConnections := numCreated - numDiscarded
