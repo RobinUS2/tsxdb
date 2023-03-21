@@ -7,7 +7,7 @@ import (
 	"github.com/RobinUS2/tsxdb/rpc/types"
 	"github.com/RobinUS2/tsxdb/tools"
 	"github.com/pkg/errors"
-	"log"
+	log "github.com/sirupsen/logrus"
 	insecureRand "math/rand"
 	"net"
 	"net/rpc"
@@ -73,7 +73,7 @@ func (client *Instance) GetConnection() (managedConnection *ManagedConnection, e
 		time.AfterFunc(returnTimeout, func() {
 			returned := atomic.LoadUint64(&managedConnection.poolReturn)
 			if returned < now {
-				panic(fmt.Sprintf("not returned connection after %s", returnTimeout))
+				log.Warnf("not returned connection after %s", returnTimeout)
 			}
 		})
 	}
@@ -118,7 +118,7 @@ type ManagedConnection struct {
 func (conn *ManagedConnection) DiscardPool() {
 	err := conn.Close()
 	if err != nil {
-		log.Printf("failed to close connection %s", err)
+		log.Errorf("failed to close connection %s", err)
 	}
 }
 
@@ -138,7 +138,7 @@ func (conn *ManagedConnection) Close() error {
 	get := atomic.LoadUint64(&conn.poolGet)
 	took := nowMs() - get
 	if took > 30*1000 { // @todo configurable
-		log.Printf("SLOW connection usage, taken at %d returned at %d took %d ms", get, now, took) // @todo via logger
+		log.Warnf("SLOW connection usage, taken at %d returned at %d took %d ms", get, now, took) // @todo via logger
 	}
 
 	// track max usage per connection

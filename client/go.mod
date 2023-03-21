@@ -15,4 +15,5 @@ require (
 	github.com/RobinUS2/tsxdb/tools v0.0.0-20200901125404-22137cdbe6ba
 	github.com/karlseguin/ccache/v2 v2.0.6
 	github.com/pkg/errors v0.9.1
+	github.com/sirupsen/logrus v1.9.0
 )
